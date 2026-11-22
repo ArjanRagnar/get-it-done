@@ -450,7 +450,7 @@ function vPeople(){
     return {total: ids.length, ontime: done.length - late.length, late: late.length, delay, open: op};
   };
   const col = (title, addId, addPh, addAct, rows, extra = '') => `<section class="pcol"><div class="pcol-h"><h2>${title}</h2><span class="note">${rows.length}</span></div>
-    <div class="inline">${extra}<input id="${addId}" placeholder="${addPh}"><button class="btn pri" data-act="${addAct}">Add</button></div><div class="plist">${rows.join('') || '<span class="empty-s">None yet</span>'}</div></section>`;
+    <div class="inline"><input id="${addId}" placeholder="${addPh}">${extra}<button class="btn pri" data-act="${addAct}">Add</button></div><div class="plist">${rows.join('') || '<span class="empty-s">None yet</span>'}</div></section>`;
   const people = S.people.map(p => { const s = stats(p); return `<div class="prow"><div><b>${esc(p.name)}</b>${p.active ? '' : ' <span class="b warn">inactive</span>'}
     <small>${p.email ? esc(p.email) : 'no email'}</small><small>${s.total} delegated · ${s.open} open · ${s.ontime} on time · ${s.late} late${s.late ? ` (avg ${s.delay} days)` : ''}</small>${!p.active && s.open ? `<small style="color:var(--urgent)">${s.open} open item${s.open === 1 ? '' : 's'} need reassigning</small>` : ''}</div>
     <div class="pbtns"><button class="btn sm" data-act="renamep" data-id="${p.id}">Edit</button><button class="btn sm" data-act="togglep" data-id="${p.id}">${p.active ? 'Make inactive' : 'Make active'}</button></div></div>`; });
