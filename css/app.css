@@ -265,3 +265,4 @@ h1,h2,h3{font-family:inherit}
 .qrow2{display:none;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap}
 .qrow2.show{display:flex}
 .qatts{display:flex;gap:6px}.qatts img{width:36px;height:36px;object-fit:cover;border-radius:6px}
+.bt-l{display:flex;align-items:center;gap:10px;flex-wrap:wrap}

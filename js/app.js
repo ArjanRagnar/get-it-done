@@ -336,16 +336,8 @@ function vDump(){
   else if (filter === 'conf') list = T.filter(i => open_(i) && i.oldName).map(i => card(i)).join('');
   else if (filter === 'email') list = T.filter(i => live(i) && i.atts.some(a => a.type === 'email')).map(i => card(i)).join('');
   const chips = [['all', 'All'], ['unb', 'Unbucketed'], ['inb', 'In buckets'], ['email', 'From email'], ['struck', 'Struck through']].concat(c.conf ? [['conf', `To confirm (${c.conf})`]] : []);
-  return `<div class="head"><div><h1>Brain dump</h1><p>Everything lands here first. Nothing ever leaves this list.</p></div></div>
+  return `${captureBar()}<div class="head"><div><h1>Brain dump</h1><p>Everything lands here first. Nothing ever leaves this list.</p></div></div>
   <div class="stats">${stat(c.total, 'Total')}${stat(c.unb, 'Unbucketed', '', 'unb')}${stat(c.inb, 'In buckets', '', 'inb')}${stat(c.done, 'Done')}${stat(c.del, 'Deleted')}${stat(c.flag, 'Flagged', c.flag ? 'hot' : '')}${c.conf ? stat(c.conf, 'To confirm', 'hot', 'conf') : ''}</div>
-  <div class="capture"><textarea id="cap" placeholder="What's on your mind? Type it, add a photo, a voice note or an email…"></textarea>
-    <input class="expl" id="capx" placeholder="Explanation: what needs to be done (required before it can move to a bucket)">
-    <div class="atts">${pending.map(a => a.type === 'photo' ? `<img src="${a.data}" alt="">` : `<div class="voice">🎙 ${esc(a.name)}</div>`).join('')}</div>
-    <div class="cap-row"><label class="btn">📷 Photo<input type="file" accept="image/*" data-act="capfile" multiple></label>
-      <label class="btn">🎙 Voice file<input type="file" accept="audio/*" data-act="capfile"></label>
-      <button class="btn" data-act="capvoice" title="The real app records in-app; this preview can't use the microphone">🎙 Simulate voice note</button>
-      <button class="btn" data-act="capemail">✉ Add email</button>
-      <span class="spacer"></span><button class="btn pri" data-act="add">Add to brain dump</button></div></div>
   <div class="chips">${chips.map(([k, l]) => `<button class="chip ${filter === k ? 'on' : ''}" data-act="filter" data-f="${k}">${l}</button>`).join('')}</div>
   ${bulkBar()}<div class="list">${list || '<div class="empty">Nothing here.</div>'}</div>`;
 }
@@ -428,7 +420,7 @@ function vReport(){
   const work = Object.entries(rows).filter(([k]) => k !== '__personal').reduce((s, [, r]) => s + r.hours, 0);
   const name = k => k === '__personal' ? 'Personal' : k === '__none' ? 'No process yet' : proc(k).name;
   const order = Object.keys(rows).sort((a, b) => (a === '__personal') - (b === '__personal') || rows[b].hours - rows[a].hours || rows[b].items - rows[a].items);
-  return `<div class="head"><div><h1>Processes</h1><p>Items count in the period they were captured; hours count when the event or appointment takes place. Tasks add no hours.</p></div></div>
+  return `<div class="head"><div><h1>Metrics</h1><p>Time by process. Items count in the period they were captured; hours count when the event or appointment takes place. Tasks add no hours.</p></div></div>
   <div class="chips">${['week', 'month', 'quarter'].map(p => `<button class="chip ${period === p ? 'on' : ''}" data-act="period" data-p="${p}">This ${p}</button>`).join('')}</div>
   <table class="rep"><thead><tr><th>Process</th><th class="num">Items</th><th class="num">Scheduled hours</th><th class="num">Items done</th><th>% of work hours</th></tr></thead><tbody>
   ${order.map(k => { const r = rows[k], pc = k === '__personal' || !work ? null : Math.round(r.hours / work * 100);
@@ -958,7 +950,7 @@ function vBoard(){
       ${tray.length > 3 ? `<a href="#" class="more" data-act="expand" data-id="tray-${b.id}">${exp ? 'Show less' : '+' + (tray.length - 3) + ' more'}</a>` : ''}</div>
       ${W.map(w => `<div class="cell ${w === cur ? 'cur' : w < cur ? 'past' : ''}">${entriesIn(w, w + 7 * DAY, b.id).map(e => mchip(e.i, {kind: e.kind, done: e.done, over: e.over, rep: e.rep, meta: e.meta, label: e.label})).join('')}</div>`).join('')}</section>`;
   }).join('');
-  return `${captureBar()}<div class="board-top"><h1>Buckets by week</h1><div class="legend">${ic('task')}Task ${ic('event')}Event ${ic('appt')}Appointment ${ic('deleg')}Delegated ${ic('done')}Done <span class="udot"></span>Urgent</div></div>
+  return `${captureBar()}<div class="board-top"><div class="bt-l"><h1>Buckets by week</h1><button type="button" class="btn sm" data-act="addbucket">+ New bucket</button></div><div class="legend">${ic('task')}Task ${ic('event')}Event ${ic('appt')}Appointment ${ic('deleg')}Delegated ${ic('done')}Done <span class="udot"></span>Urgent</div></div>
   <div class="board-wrap">${railHtml()}<div class="board"><div style="min-width:${280 + 128 * W.length}px">${head}${lanes}</div></div></div>`;
 }
 function vBoardMobile(){
@@ -975,7 +967,7 @@ function vBoardMobile(){
       ${railHtml()}`;
   }
   const bid = S.ui.mbucket && bucket(S.ui.mbucket) ? S.ui.mbucket : '__unb';
-  const tabs = `<nav class="m-tabs" aria-label="Buckets"><button type="button" class="chip ${bid === '__unb' ? 'on' : ''}" data-act="mbucket" data-v="__unb">Unbucketed</button>${S.buckets.map(b => `<button type="button" class="chip ${bid === b.id ? 'on' : ''}" data-act="mbucket" data-v="${b.id}">${esc(b.name)}</button>`).join('')}</nav>`;
+  const tabs = `<nav class="m-tabs" aria-label="Buckets"><button type="button" class="chip ${bid === '__unb' ? 'on' : ''}" data-act="mbucket" data-v="__unb">Unbucketed</button>${S.buckets.map(b => `<button type="button" class="chip ${bid === b.id ? 'on' : ''}" data-act="mbucket" data-v="${b.id}">${esc(b.name)}</button>`).join('')}<button type="button" class="chip" data-act="addbucket">+ New bucket</button></nav>`;
   if (bid === '__unb') return captureBar() + tog + tabs + railHtml();
   const its = tops().filter(i => open_(i) && i.bucket === bid && !locked(i)), u = its.filter(i => i.urgent), n = its.filter(i => !i.urgent);
   const W = Array.from({length: 6}, (_, k) => monday(now()) + (k - 1) * 7 * DAY);
@@ -1042,7 +1034,7 @@ function captureModal(kind){
 /* ================= Side bar ================= */
 function renderSide(){
   const c = counts();
-  const nav = [['board', 'Board'], ['dump', 'Brain dump', c.unb], ['urgent', 'Urgent', c.urg, true], ['done', 'Done', c.done], ['report', 'Processes'], ['people', 'People, places, processes'], ['log', 'Change log'], ['deleted', 'Deleted', c.del], ['settings', 'Settings']];
+  const nav = [['board', 'Dashboard'], ['dump', 'Brain dump', c.unb], ['urgent', 'Urgent', c.urg, true], ['done', 'Done', c.done], ['report', 'Metrics'], ['people', 'People, places, processes'], ['log', 'Change log'], ['deleted', 'Deleted', c.del], ['settings', 'Settings']];
   const st = {local: 'This device only', pending: 'Saving…', syncing: 'Syncing…', synced: 'Synced', offline: 'Offline', error: 'Sync problem'}[syncState];
   $('#side').innerHTML = `
     <div class="brand"><img src="icons/icon.svg" width="30" height="30" alt=""><div>Get it Done<small>Test stage ${C.stage}</small></div></div>
