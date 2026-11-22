@@ -1033,11 +1033,12 @@ function captureModal(kind){
 
 /* ================= Side bar ================= */
 function renderSide(){
+  $('.app').classList.toggle('collapsed', !!(S.ui && S.ui.side === 'hidden'));
   const c = counts();
   const nav = [['board', 'Dashboard'], ['dump', 'Brain dump', c.unb], ['urgent', 'Urgent', c.urg, true], ['done', 'Done', c.done], ['report', 'Metrics'], ['people', 'People, places, processes'], ['log', 'Change log'], ['deleted', 'Deleted', c.del], ['settings', 'Settings']];
   const st = {local: 'This device only', pending: 'Saving…', syncing: 'Syncing…', synced: 'Synced', offline: 'Offline', error: 'Sync problem'}[syncState];
   $('#side').innerHTML = `
-    <div class="brand"><img src="icons/icon.svg" width="30" height="30" alt=""><div>Get it Done<small>Test stage ${C.stage} · v${C.version}</small></div></div>
+    <div class="brand"><div class="bl"><img src="icons/icon.svg" width="30" height="30" alt=""><div>Get it Done<small>Test stage ${C.stage} · v${C.version}</small></div></div><button type="button" class="side-x" data-act="side" aria-label="Hide menu" title="Hide menu">«</button></div>
     <button type="button" class="btn pri cap-btn" data-act="capture">+ Capture</button>
     <nav>${nav.map(([k, l, n, hot]) => `<button class="${view === k ? 'on' : ''}" data-act="nav" data-v="${k}"><span>${l}</span>${n !== undefined ? `<span class="n ${hot && n ? 'hot' : ''}">${n}</span>` : ''}</button>`).join('')}</nav>
     <div class="side-card"><div class="lbl">Google</div>${GID.signedIn ? `<b>${esc(GID.email || 'Signed in')}</b><br>${st}${S.eaMode ? '<br><b>EA mode on</b>' : ''}` : `Not signed in<div class="row"><button data-act="signin">Sign in</button></div>`}</div>`;
@@ -1071,6 +1072,7 @@ function boot(){
   window.addEventListener('resize', () => { clearTimeout(boot._r); boot._r = setTimeout(render, 200); });
 }
 Object.assign(A, {
+  side: () => { S.ui.side = S.ui.side === 'hidden' ? 'shown' : 'hidden'; save(); render(); },
   open: d => { panelId = d.id; renderPanel(); },
   closepanel: () => { panelId = null; renderPanel(); },
   capture: () => captureModal(),

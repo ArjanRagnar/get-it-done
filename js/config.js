@@ -8,6 +8,6 @@ window.GID_CONFIG = {
     'https://www.googleapis.com/auth/gmail.send'
   ].join(' '),
   dataFile: 'get-it-done.json',
-  version: '0.2.3',
+  version: '0.2.4',
   stage: 1 // 1: sign-in, Drive storage, brain dump, buckets, board. Google Calendar/Tasks writes come in stage 2, emails in stage 3.
 };
