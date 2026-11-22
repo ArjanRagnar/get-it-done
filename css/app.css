@@ -287,7 +287,7 @@ main{padding-top:calc(28px + env(safe-area-inset-top));padding-bottom:calc(80px 
 .side-x:hover{background:rgba(255,255,255,.08)}
 #sideopen{display:none;position:fixed;z-index:30;top:calc(12px + env(safe-area-inset-top));left:calc(12px + env(safe-area-inset-left));height:42px;padding:0 14px;border-radius:11px;border:0;background:var(--ink);box-shadow:0 4px 14px rgba(0,0,0,.2);font-size:15px;font-weight:600;color:#fff;cursor:pointer}
 .app.collapsed{grid-template-columns:1fr}
-.app.collapsed aside{display:none}
+.app.collapsed #side{display:none}
 .app.collapsed main{padding-top:calc(66px + env(safe-area-inset-top))}
 .app.collapsed ~ #sideopen{display:block}
 @media (max-width:1100px){
@@ -329,7 +329,7 @@ main{padding-top:calc(28px + env(safe-area-inset-top));padding-bottom:calc(80px 
 /* v0.2.8: the menu stays put while the page scrolls */
 @media (min-width:821px){
   .app{display:block;padding-left:calc(248px + env(safe-area-inset-left))}
-  .app aside{position:fixed;top:0;bottom:0;left:0;width:248px;height:auto;box-sizing:border-box;padding-left:calc(16px + env(safe-area-inset-left));z-index:20;overflow-y:auto;overscroll-behavior:contain}
+  .app #side{position:fixed;top:0;bottom:0;left:0;width:248px;height:auto;box-sizing:border-box;padding-left:calc(16px + env(safe-area-inset-left));z-index:20;overflow-y:auto;overscroll-behavior:contain}
   .app.collapsed{padding-left:env(safe-area-inset-left)}
   main{max-width:none}
 }

@@ -934,7 +934,7 @@ function entriesIn(from, to, bucketId){
 function railHtml(){
   const T = tops().filter(i => open_(i) && !i.bucket), u = T.filter(i => i.urgent), n = T.filter(i => !i.urgent);
   const sec = (t, arr, cls) => `<section class="rail"><div class="rail-h ${cls}"><h2>${t}</h2><b>${arr.length}</b></div>${arr.map(i => mchip(i, {meta: i.expl.trim() ? '' : 'Needs explanation'})).join('') || '<span class="empty-s">Nothing here</span>'}</section>`;
-  return `<aside class="rails">${sec('Unbucketed · urgent', u, 'u')}${sec('Unbucketed', n, '')}</aside>`;
+  return `<div class="rails" role="region" aria-label="Unbucketed">${sec('Unbucketed · urgent', u, 'u')}${sec('Unbucketed', n, '')}</div>`;
 }
 function vBoard(){
   if (window.matchMedia('(max-width: 820px)').matches) return vBoardMobile();
