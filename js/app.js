@@ -449,16 +449,16 @@ function vPeople(){
     const op = S.items.filter(i => live(i) && !i.done && i.delegates.some(d => d.pid === p.id && d.status !== 'Done')).length;
     return {total: ids.length, ontime: done.length - late.length, late: late.length, delay, open: op};
   };
+  const col = (title, addId, addPh, addAct, rows, extra = '') => `<section class="pcol"><div class="pcol-h"><h2>${title}</h2><span class="note">${rows.length}</span></div>
+    <div class="inline">${extra}<input id="${addId}" placeholder="${addPh}"><button class="btn pri" data-act="${addAct}">Add</button></div><div class="plist">${rows.join('') || '<span class="empty-s">None yet</span>'}</div></section>`;
+  const people = S.people.map(p => { const s = stats(p); return `<div class="prow"><div><b>${esc(p.name)}</b>${p.active ? '' : ' <span class="b warn">inactive</span>'}
+    <small>${p.email ? esc(p.email) : 'no email'}</small><small>${s.total} delegated · ${s.open} open · ${s.ontime} on time · ${s.late} late${s.late ? ` (avg ${s.delay} days)` : ''}</small>${!p.active && s.open ? `<small style="color:var(--urgent)">${s.open} open item${s.open === 1 ? '' : 's'} need reassigning</small>` : ''}</div>
+    <div class="pbtns"><button class="btn sm" data-act="renamep" data-id="${p.id}">Edit</button><button class="btn sm" data-act="togglep" data-id="${p.id}">${p.active ? 'Make inactive' : 'Make active'}</button></div></div>`; });
+  const places = S.places.map(l => `<div class="prow"><div><b>${esc(l.name)}</b><small>${S.items.filter(i => i.place === l.id && live(i)).length} items</small></div><div class="pbtns"><button class="btn sm" data-act="renamel" data-id="${l.id}">Rename</button></div></div>`);
+  const procs = S.processes.map(r => `<div class="prow"><div><b>${esc(r.name)}</b>${r.active ? '' : ' <span class="b warn">inactive</span>'}<small>${S.items.filter(i => i.process === r.id && live(i)).length} items</small></div>
+    <div class="pbtns"><button class="btn sm" data-act="renamer" data-id="${r.id}">Rename</button><button class="btn sm" data-act="toggler" data-id="${r.id}">${r.active ? 'Make inactive' : 'Make active'}</button></div></div>`);
   return `<div class="head"><div><h1>People, places, processes</h1><p>None of these can be deleted: rename them, or mark people and processes inactive.</p></div></div>
-  <div class="two"><div class="panel"><h2>People</h2>${S.people.map(p => { const s = stats(p); return `<div class="prow"><div><b>${esc(p.name)}</b>${p.active ? '' : ' <span class="b warn">inactive</span>'}
-    <small>${p.email ? esc(p.email) + ' · ' : 'no email · '}${s.total} delegated · ${s.open} open · ${s.ontime} on time · ${s.late} late${s.late ? ` (avg ${s.delay} days)` : ''}</small>${!p.active && s.open ? `<small style="color:var(--urgent)">${s.open} open item${s.open === 1 ? '' : 's'} need reassigning</small>` : ''}</div>
-    <div style="display:flex;gap:4px"><button class="btn sm" data-act="renamep" data-id="${p.id}">Edit</button><button class="btn sm" data-act="togglep" data-id="${p.id}">${p.active ? 'Make inactive' : 'Make active'}</button></div></div>`; }).join('')}
-    <div class="inline"><input id="newp" placeholder="Name"><input id="newpe" placeholder="Email (optional)"><button class="btn pri" data-act="addp">Add</button></div></div>
-  <div><div class="panel" style="margin-bottom:18px"><h2>Processes</h2>${S.processes.map(r => `<div class="prow"><div><b>⚙ ${esc(r.name)}</b>${r.active ? '' : ' <span class="b warn">inactive</span>'}<small>${S.items.filter(i => i.process === r.id && live(i)).length} items</small></div>
-      <div style="display:flex;gap:4px"><button class="btn sm" data-act="renamer" data-id="${r.id}">Rename</button><button class="btn sm" data-act="toggler" data-id="${r.id}">${r.active ? 'Make inactive' : 'Make active'}</button></div></div>`).join('')}
-    <div class="inline"><input id="newr" placeholder="New process"><button class="btn pri" data-act="addr">Add</button></div></div>
-  <div class="panel"><h2>Places</h2>${S.places.map(l => `<div class="prow"><div><b>📍 ${esc(l.name)}</b><small>${S.items.filter(i => i.place === l.id && live(i)).length} items</small></div><button class="btn sm" data-act="renamel" data-id="${l.id}">Rename</button></div>`).join('')}
-    <div class="inline"><input id="newl" placeholder="New place"><button class="btn pri" data-act="addl">Add</button></div></div></div></div>`;
+  <div class="pcols">${col('People', 'newp', 'Name', 'addp', people, '<input id="newpe" placeholder="Email (optional)">')}${col('Places', 'newl', 'New place', 'addl', places)}${col('Processes', 'newr', 'New process', 'addr', procs)}</div>`;
 }
 function vLog(){
   const tabs = [['items', 'Item changes'], ['buckets', 'Bucket changes'], ['people', 'Delegation'], ['notes', 'Reschedule notes']];
