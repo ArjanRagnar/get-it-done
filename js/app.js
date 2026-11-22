@@ -958,7 +958,7 @@ function vBoard(){
       ${tray.length > 3 ? `<a href="#" class="more" data-act="expand" data-id="tray-${b.id}">${exp ? 'Show less' : '+' + (tray.length - 3) + ' more'}</a>` : ''}</div>
       ${W.map(w => `<div class="cell ${w === cur ? 'cur' : w < cur ? 'past' : ''}">${entriesIn(w, w + 7 * DAY, b.id).map(e => mchip(e.i, {kind: e.kind, done: e.done, over: e.over, rep: e.rep, meta: e.meta, label: e.label})).join('')}</div>`).join('')}</section>`;
   }).join('');
-  return `<div class="board-top"><h1>Buckets by week</h1><div class="legend">${ic('task')}Task ${ic('event')}Event ${ic('appt')}Appointment ${ic('deleg')}Delegated ${ic('done')}Done <span class="udot"></span>Urgent</div></div>
+  return `${captureBar()}<div class="board-top"><h1>Buckets by week</h1><div class="legend">${ic('task')}Task ${ic('event')}Event ${ic('appt')}Appointment ${ic('deleg')}Delegated ${ic('done')}Done <span class="udot"></span>Urgent</div></div>
   <div class="board-wrap">${railHtml()}<div class="board"><div style="min-width:${280 + 128 * W.length}px">${head}${lanes}</div></div></div>`;
 }
 function vBoardMobile(){
@@ -968,7 +968,7 @@ function vBoardMobile(){
     const rng = S.ui.mrange || 'week', start = rng === 'day' ? new Date(new Date(now()).setHours(0, 0, 0, 0)).getTime() + (S.ui.offset || 0) * DAY : monday(now()) + (S.ui.offset || 0) * 7 * DAY;
     const days = rng === 'day' ? [start] : Array.from({length: 7}, (_, k) => start + k * DAY);
     const bn = i => i.bucket ? bname(i.bucket) : 'Unbucketed';
-    return `${tog}<div class="m-bar"><button type="button" class="ibtn" data-act="wk" data-d="-1" aria-label="Earlier">‹</button><b>${rng === 'day' ? fmtD(start) : 'W' + isoWeek(start) + ' · ' + new Date(start).getDate() + '–' + new Date(start + 6 * DAY).getDate() + ' ' + new Date(start + 6 * DAY).toLocaleDateString(undefined, {month: 'short'})}</b><button type="button" class="ibtn" data-act="wk" data-d="1" aria-label="Later">›</button>
+    return `${captureBar()}${tog}<div class="m-bar"><button type="button" class="ibtn" data-act="wk" data-d="-1" aria-label="Earlier">‹</button><b>${rng === 'day' ? fmtD(start) : 'W' + isoWeek(start) + ' · ' + new Date(start).getDate() + '–' + new Date(start + 6 * DAY).getDate() + ' ' + new Date(start + 6 * DAY).toLocaleDateString(undefined, {month: 'short'})}</b><button type="button" class="ibtn" data-act="wk" data-d="1" aria-label="Later">›</button>
       <span class="spacer"></span><button type="button" class="chip ${rng === 'week' ? 'on' : ''}" data-act="mrange" data-v="week">Week</button><button type="button" class="chip ${rng === 'day' ? 'on' : ''}" data-act="mrange" data-v="day">Day</button></div>
       ${days.map(d => { const es = entriesIn(d, d + DAY), today = d === new Date(new Date(now()).setHours(0, 0, 0, 0)).getTime();
         return `<div class="m-day ${today ? 'cur' : ''}"><div class="m-dh">${fmtD(d)}${today ? ' · today' : ''}</div>${es.map(e => mchip(e.i, {kind: e.kind, done: e.done, over: e.over, rep: e.rep, meta: e.kind === 'task' || e.kind === 'deleg' ? e.meta.replace(/^.*?·\s?/, '') : tfmt(e.t), label: e.label, tag: bn(e.i)})).join('') || '<span class="empty-s">Nothing scheduled</span>'}</div>`; }).join('')}
@@ -976,10 +976,10 @@ function vBoardMobile(){
   }
   const bid = S.ui.mbucket && bucket(S.ui.mbucket) ? S.ui.mbucket : '__unb';
   const tabs = `<nav class="m-tabs" aria-label="Buckets"><button type="button" class="chip ${bid === '__unb' ? 'on' : ''}" data-act="mbucket" data-v="__unb">Unbucketed</button>${S.buckets.map(b => `<button type="button" class="chip ${bid === b.id ? 'on' : ''}" data-act="mbucket" data-v="${b.id}">${esc(b.name)}</button>`).join('')}</nav>`;
-  if (bid === '__unb') return tog + tabs + railHtml();
+  if (bid === '__unb') return captureBar() + tog + tabs + railHtml();
   const its = tops().filter(i => open_(i) && i.bucket === bid && !locked(i)), u = its.filter(i => i.urgent), n = its.filter(i => !i.urgent);
   const W = Array.from({length: 6}, (_, k) => monday(now()) + (k - 1) * 7 * DAY);
-  return `${tog}${tabs}<div class="m-sec"><h2 class="u">Urgent, unscheduled <b>${u.length}</b></h2>${u.map(i => mchip(i)).join('') || '<span class="empty-s">None</span>'}</div>
+  return `${captureBar()}${tog}${tabs}<div class="m-sec"><h2 class="u">Urgent, unscheduled <b>${u.length}</b></h2>${u.map(i => mchip(i)).join('') || '<span class="empty-s">None</span>'}</div>
     <div class="m-sec"><h2>Unscheduled <b>${n.length}</b></h2>${n.map(i => mchip(i)).join('') || '<span class="empty-s">None</span>'}</div>
     <div class="m-sec"><h2>Scheduled &amp; tasks, by week</h2>${W.map(w => `<div class="m-day ${w === monday(now()) ? 'cur' : ''}"><div class="m-dh">W${isoWeek(w)} · ${new Date(w).getDate()}–${new Date(w + 6 * DAY).getDate()} ${new Date(w + 6 * DAY).toLocaleDateString(undefined, {month: 'short'})}</div>${entriesIn(w, w + 7 * DAY, bid).map(e => mchip(e.i, {kind: e.kind, done: e.done, over: e.over, rep: e.rep, meta: e.meta, label: e.label})).join('') || '<span class="empty-s">Nothing scheduled</span>'}</div>`).join('')}</div>`;
 }
@@ -1102,6 +1102,47 @@ document.addEventListener('change', e => {
   if (a === 'weeks') { S.ui.weeks = +t.value; save(); render(); }
   else if (a === 'font') { S.font = t.value; commit(); }
   else if (a === 'eamode') { S.eaMode = t.checked; commit(S.eaMode ? 'EA mode on' : 'EA mode off'); }
+});
+
+/* ================= Capture bar (above the buckets) ================= */
+let qb = {text: '', expl: '', atts: []}, qbRec = null;
+function captureBar(){
+  return `<form class="qbar" data-qbar onsubmit="return false">
+    <div class="qrow"><label class="sr" for="qb-text">Capture</label><input id="qb-text" class="qin" autocomplete="off" placeholder="What's on your mind? Type it and press Enter" value="${esc(qb.text)}">
+      <label class="ibtn qi" title="Add photo" aria-label="Add photo">📷<input type="file" accept="image/*" multiple data-act="qbphoto" hidden></label>
+      <button type="button" class="ibtn qi ${qbRec ? 'rec' : ''}" data-act="qbrec" aria-label="${qbRec ? 'Stop recording' : 'Record voice note'}">${qbRec ? '■' : '🎙'}</button>
+      <button type="button" class="ibtn qi" data-act="qbemail" title="Add an email" aria-label="Add an email">✉</button>
+      <button type="submit" class="btn pri" data-act="qbadd">Add</button></div>
+    <div class="qrow2 ${qb.text || qb.atts.length ? 'show' : ''}"><label class="sr" for="qb-expl">Explanation</label><input id="qb-expl" class="qin sm" autocomplete="off" placeholder="Explanation: what needs to be done (optional now, needed before bucketing)" value="${esc(qb.expl)}">
+      <span class="qatts">${qb.atts.map((a, k) => a.type === 'photo' ? `<img src="${a.data}" alt="">` : `<span class="voice">🎙 ${k + 1}</span>`).join('')}</span><span class="note" id="qb-st">${qbRec ? 'Recording…' : ''}</span></div>
+  </form>`;
+}
+function qbAdd(){
+  if (qbRec) return toast('Stop the recording first');
+  const text = qb.text.trim(), expl = qb.expl.trim();
+  if (!text && !qb.atts.length) { const el = $('#qb-text'); el && el.focus(); return toast('Type something first'); }
+  S.items.push(base({text: text || (qb.atts[0].type === 'photo' ? 'Photo' : 'Voice note'), expl, atts: qb.atts}));
+  qb = {text: '', expl: '', atts: []}; commit('Added to the brain dump');
+  setTimeout(() => { const el = $('#qb-text'); el && el.focus(); }, 0);
+}
+async function qbRecord(){
+  if (qbRec) { qbRec.stop(); return; }
+  if (!navigator.mediaDevices || !window.MediaRecorder) return toast('This browser can\'t record audio');
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({audio: true}), chunks = [];
+    const r = new MediaRecorder(stream); qbRec = r;
+    r.ondataavailable = e => chunks.push(e.data);
+    r.onstop = () => { stream.getTracks().forEach(t => t.stop()); clearTimeout(r._t); const blob = new Blob(chunks, {type: r.mimeType || 'audio/webm'}); qbRec = null;
+      const fr = new FileReader(); fr.onload = () => { qb.atts.push({type: 'voice', name: 'Voice note', data: fr.result, transcript: ''}); render(); }; fr.readAsDataURL(blob); };
+    r.start(); r._t = setTimeout(() => qbRec && qbRec.stop(), 120000); render();
+  } catch (e) { qbRec = null; toast('Microphone permission was refused'); }
+}
+document.addEventListener('input', e => { if (e.target.id === 'qb-text') { qb.text = e.target.value; const r2 = $('.qrow2'); r2 && r2.classList.toggle('show', !!qb.text || qb.atts.length > 0); } else if (e.target.id === 'qb-expl') qb.expl = e.target.value; });
+document.addEventListener('keydown', e => { if (e.key === 'Enter' && (e.target.id === 'qb-text' || e.target.id === 'qb-expl')) { e.preventDefault(); qbAdd(); } });
+document.addEventListener('change', async e => { if (e.target.dataset && e.target.dataset.act === 'qbphoto') { for (const f of e.target.files) { const a = await readFile(f); if (a) qb.atts.push(a); } render(); } });
+Object.assign(A, {
+  qbadd: () => qbAdd(), qbrec: () => qbRecord(), qbemail: () => emailModal(),
+  capture: () => { view = 'board'; panelId = null; render(); setTimeout(() => { const el = $('#qb-text'); el && el.focus(); }, 0); }
 });
 
 boot();
