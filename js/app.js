@@ -1064,6 +1064,7 @@ function boot(){
   S.ui = Object.assign({weeks: 6, offset: 0, mview: 'time', mbucket: null, mrange: 'week'}, S.ui || {});
   ['closedDeleg', 'doneLog', 'notes'].forEach(k => S[k] = S[k] || []);
   conflicts = lget(CONFKEY) || [];
+  renderSide(); if (!GID.wasSignedIn() && !localStorage.getItem('gid-skip')) welcome(); else render(); // show something straight away, before Google's script loads
   const start = () => {
     GID.onChange = () => { if (GID.signedIn) GID.whoami().then(() => { renderSide(); syncNow(); }); render(); };
     if (!GID.signedIn && !GID.wasSignedIn() && !localStorage.getItem('gid-skip')) { renderSide(); welcome(); return; }
