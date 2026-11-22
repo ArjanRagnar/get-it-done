@@ -21,6 +21,14 @@
 <div id="panel" aria-label="Item details"></div>
 <div id="ov"></div>
 <div id="toast" role="status"></div>
+<script>
+  // Show any unexpected error on screen, so problems can be reported with a screenshot.
+  window.addEventListener('error', e => {
+    let b = document.getElementById('errbar');
+    if (!b) { b = document.createElement('div'); b.id = 'errbar'; b.style.cssText = 'position:fixed;left:12px;right:12px;bottom:12px;z-index:99;background:#B8432B;color:#fff;padding:10px 14px;border-radius:10px;font:13px system-ui;white-space:pre-wrap'; document.body.appendChild(b); }
+    b.textContent = 'Something went wrong (please screenshot this): ' + (e.message || e) + (e.filename ? '\n' + e.filename.split('/').pop() + ':' + e.lineno : '');
+  });
+</script>
 <script src="js/config.js"></script>
 <script src="js/google.js"></script>
 <script src="https://accounts.google.com/gsi/client" async></script>
