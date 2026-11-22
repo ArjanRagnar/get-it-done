@@ -5,7 +5,7 @@ A personal to-do app with calendar scheduling: capture everything into a brain d
 - Runs as an installable web app on Windows, iPhone and iPad, and works offline.
 - Each user's data stays in their own Google account (Calendar, Tasks, Gmail and a hidden app folder in Google Drive). This repository holds only the app's code.
 
-**Live app:** https://arjanragnar.github.io/brain-dump/
+**Live app:** https://arjanragnar.github.io/get-it-done/
 
 ## Status
 
