@@ -1,6 +1,6 @@
 {
-  "name": "Brain Dump",
-  "short_name": "Brain Dump",
+  "name": "Get it Done",
+  "short_name": "Get it Done",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

@@ -1,4 +1,4 @@
-# Brain Dump
+# Get it Done
 
 A personal to-do app with calendar scheduling: capture everything into a brain dump, sort it into buckets, and schedule it into Google Calendar and Google Tasks so it shows on your phone, laptop and watch.
 
