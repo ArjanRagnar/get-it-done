@@ -308,7 +308,7 @@ function card(i, ctx){
   }
   return `<div class="${cls}">${!struck && !done ? `<input type="checkbox" data-act="sel" data-id="${i.id}" ${sel.has(i.id) ? 'checked' : ''} aria-label="Select">` : '<span style="width:17px;flex:none"></span>'}
     <div class="cbody"><div class="text">${done ? '✓ ' : ''}${esc(i.text) || '<em>Untitled</em>'}${i.isMaster ? ' <span class="b bucket" style="vertical-align:2px">master</span>' : ''}</div>
-    <div class="expl ${i.expl.trim() ? '' : 'miss'}">${i.expl.trim() ? esc(i.expl) : 'No explanation yet'}</div>
+    ${explBlock(i, struck || done)}
     ${atts(i)}<div class="badges">${badges(i)}</div>${delegSection(i)}<div class="acts">${a.join('')}</div>${moreOpen.has(i.id) && more.length ? `<div class="more-acts">${more.join('')}</div>` : ''}${grp}</div></div>`;
 }
 function bulkBar(){
@@ -942,15 +942,17 @@ function vBoard(){
       <label class="note">Show <select data-act="weeks">${[4, 6, 13].map(n => `<option value="${n}" ${S.ui.weeks === n ? 'selected' : ''}>${n === 13 ? 'Quarter' : n + ' weeks'}</option>`).join('')}</select></label></div>
     ${W.map(w => { const d = new Date(w), m = d.getMonth(), show = m !== lastMonth; lastMonth = m; const e = new Date(w + 6 * DAY);
       return `<div class="wk-h ${w === cur ? 'cur' : ''}"><span class="mo">${show ? d.toLocaleDateString(undefined, {month: 'short', year: m === 0 || W[0] === w ? 'numeric' : undefined}) : '&#160;'}</span><b>W${isoWeek(w)}${w === cur ? ' · this week' : ''}</b><span class="note">${d.getDate()}–${e.getDate()}</span></div>`; }).join('')}</div>`;
-  const lanes = S.buckets.map(b => {
+  const OB = orderedBuckets();
+  const lanes = OB.map((b, bi) => {
     const its = tops().filter(i => open_(i) && i.bucket === b.id && !locked(i)), u = its.filter(i => i.urgent), n = its.filter(i => !i.urgent), tray = u.concat(n);
     const exp = expanded.has('tray-' + b.id), shown = exp ? tray : tray.slice(0, 3);
-    return `<section class="lane" style="${cols}" aria-label="${esc(b.name)}"><div class="tray"><div class="tray-h"><h3><a href="#" data-act="openb" data-id="${b.id}">${esc(b.name)}</a></h3><span>${u.length ? `<span class="ub">${u.length} urgent</span> ` : ''}<span class="note">${tray.length} to schedule</span></span></div>
+    const mine = (S.ui.bsort || 'mine') === 'mine';
+    return `<section class="lane" style="${cols}" aria-label="${esc(b.name)}" data-bdrag="${b.id}" draggable="${mine ? 'true' : 'false'}"><div class="tray"><div class="tray-h"><h3>${mine ? '<span class="grip" title="Drag to move" aria-hidden="true">⠿</span>' : ''}<a href="#" data-act="openb" data-id="${b.id}">${esc(b.name)}</a>${mine ? `<span class="bord"><button type="button" class="tiny" data-act="bup" data-id="${b.id}" aria-label="Move ${esc(b.name)} up" ${bi === 0 ? 'disabled' : ''}>▲</button><button type="button" class="tiny" data-act="bdown" data-id="${b.id}" aria-label="Move ${esc(b.name)} down" ${bi === OB.length - 1 ? 'disabled' : ''}>▼</button></span>` : ''}</h3><span>${u.length ? `<span class="ub">${u.length} urgent</span> ` : ''}<span class="note">${tray.length} to schedule</span></span></div>
       ${shown.map(i => mchip(i, {meta: waiting(i) ? 'Waiting 2+ weeks' : (b.loc && i.place ? place(i.place).name : '')})).join('') || '<span class="empty-s">Nothing waiting</span>'}
       ${tray.length > 3 ? `<a href="#" class="more" data-act="expand" data-id="tray-${b.id}">${exp ? 'Show less' : '+' + (tray.length - 3) + ' more'}</a>` : ''}</div>
       ${W.map(w => `<div class="cell ${w === cur ? 'cur' : w < cur ? 'past' : ''}">${entriesIn(w, w + 7 * DAY, b.id).map(e => mchip(e.i, {kind: e.kind, done: e.done, over: e.over, rep: e.rep, meta: e.meta, label: e.label})).join('')}</div>`).join('')}</section>`;
   }).join('');
-  return `${captureBar()}<div class="board-top"><div class="bt-l"><h1>Buckets by week</h1><button type="button" class="btn sm" data-act="addbucket">+ New bucket</button></div><div class="legend">${ic('task')}Task ${ic('event')}Event ${ic('appt')}Appointment ${ic('deleg')}Delegated ${ic('done')}Done <span class="udot"></span>Urgent</div></div>
+  return `${captureBar()}<div class="board-top"><div class="bt-l"><h1>Buckets by week</h1><button type="button" class="btn sm" data-act="addbucket">+ New bucket</button><label class="note">Order <select data-act="bsort">${[['mine', 'My order'], ['az', 'A to Z'], ['waiting', 'Most to schedule'], ['urgent', 'Most urgent']].map(([v, l]) => `<option value="${v}" ${(S.ui.bsort || 'mine') === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label></div><div class="legend">${ic('task')}Task ${ic('event')}Event ${ic('appt')}Appointment ${ic('deleg')}Delegated ${ic('done')}Done <span class="udot"></span>Urgent</div></div>
   <div class="board-wrap">${railHtml()}<div class="board"><div style="min-width:${280 + 128 * W.length}px">${head}${lanes}</div></div></div>`;
 }
 function vBoardMobile(){
@@ -967,7 +969,7 @@ function vBoardMobile(){
       ${railHtml()}`;
   }
   const bid = S.ui.mbucket && bucket(S.ui.mbucket) ? S.ui.mbucket : '__unb';
-  const tabs = `<nav class="m-tabs" aria-label="Buckets"><button type="button" class="chip ${bid === '__unb' ? 'on' : ''}" data-act="mbucket" data-v="__unb">Unbucketed</button>${S.buckets.map(b => `<button type="button" class="chip ${bid === b.id ? 'on' : ''}" data-act="mbucket" data-v="${b.id}">${esc(b.name)}</button>`).join('')}<button type="button" class="chip" data-act="addbucket">+ New bucket</button></nav>`;
+  const tabs = `<nav class="m-tabs" aria-label="Buckets"><button type="button" class="chip ${bid === '__unb' ? 'on' : ''}" data-act="mbucket" data-v="__unb">Unbucketed</button>${orderedBuckets().map(b => `<button type="button" class="chip ${bid === b.id ? 'on' : ''}" data-act="mbucket" data-v="${b.id}">${esc(b.name)}</button>`).join('')}<button type="button" class="chip" data-act="addbucket">+ New bucket</button></nav>`;
   if (bid === '__unb') return captureBar() + tog + tabs + railHtml();
   const its = tops().filter(i => open_(i) && i.bucket === bid && !locked(i)), u = its.filter(i => i.urgent), n = its.filter(i => !i.urgent);
   const W = Array.from({length: 6}, (_, k) => monday(now()) + (k - 1) * 7 * DAY);
@@ -1137,6 +1139,60 @@ document.addEventListener('change', async e => { if (e.target.dataset && e.targe
 Object.assign(A, {
   qbadd: () => qbAdd(), qbrec: () => qbRecord(), qbemail: () => emailModal(),
   capture: () => { view = 'board'; panelId = null; render(); setTimeout(() => { const el = $('#qb-text'); el && el.focus(); }, 0); }
+});
+
+/* ================= Inline explanation editing ================= */
+let editingExpl = null;
+function explBlock(i, ro){
+  if (editingExpl === i.id) return `<div class="expl-ed"><textarea id="ex-${i.id}" class="qin sm" rows="2" placeholder="What needs to be done?">${esc(i.expl)}</textarea>
+    <div class="cap-row"><button type="button" class="btn sm pri" data-act="saveexpl" data-id="${i.id}">Save</button><button type="button" class="btn sm ghost" data-act="cancelexpl">Cancel</button><span class="note">Enter saves · Shift+Enter for a new line</span></div></div>`;
+  const has = i.expl.trim(), can = !ro && !locked(i);
+  const inner = has ? esc(i.expl) : (can ? '+ Add explanation' : 'No explanation yet');
+  return can ? `<button type="button" class="expl expl-btn ${has ? '' : 'miss'}" data-act="editexpl" data-id="${i.id}" title="${has ? 'Edit explanation' : 'Add explanation'}">${inner}</button>`
+    : `<div class="expl ${has ? '' : 'miss'}" ${!ro && locked(i) ? 'title="Scheduled items are locked. Unschedule to edit."' : ''}>${inner}</div>`;
+}
+function saveExpl(id){
+  const i = get(id), el = document.getElementById('ex-' + id); if (!i || !el) return;
+  const v = el.value.trim(); editingExpl = null;
+  if (v === i.expl) { render(); return; }
+  logItem(i.id, 'edit', `Explanation: "${i.expl}" → "${v}"`); i.expl = v; i.edited = true; if (v) i.needsExpl = false;
+  save(); render(); toast('Explanation saved'); setTimeout(() => afterEditPrompt(i), 0);
+}
+document.addEventListener('keydown', e => {
+  if (e.target.id && e.target.id.startsWith('ex-')) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveExpl(e.target.id.slice(3)); }
+    else if (e.key === 'Escape') { editingExpl = null; render(); }
+  }
+});
+/* ================= Bucket order and sorting on the dashboard ================= */
+function orderedBuckets(){
+  const by = S.ui.bsort || 'mine', bs = S.buckets.slice();
+  if (by === 'mine') return bs;
+  const cnt = b => tops().filter(i => open_(i) && i.bucket === b.id && !locked(i));
+  if (by === 'az') return bs.sort((a, b) => a.name.localeCompare(b.name));
+  if (by === 'waiting') return bs.sort((a, b) => cnt(b).length - cnt(a).length);
+  if (by === 'urgent') return bs.sort((a, b) => cnt(b).filter(i => i.urgent).length - cnt(a).filter(i => i.urgent).length || cnt(b).length - cnt(a).length);
+  return bs;
+}
+function moveBucket(id, dir){
+  const k = S.buckets.findIndex(b => b.id === id), j = k + dir;
+  if (k < 0 || j < 0 || j >= S.buckets.length) return;
+  const [b] = S.buckets.splice(k, 1); S.buckets.splice(j, 0, b); save(); render();
+}
+let dragB = null;
+document.addEventListener('dragstart', e => { const l = e.target.closest && e.target.closest('[data-bdrag]'); if (l) { dragB = l.dataset.bdrag; e.dataTransfer.effectAllowed = 'move'; l.classList.add('dragging'); } });
+document.addEventListener('dragover', e => { if (dragB && e.target.closest('[data-bdrag]')) e.preventDefault(); });
+document.addEventListener('drop', e => { const l = e.target.closest && e.target.closest('[data-bdrag]'); if (!dragB || !l) return; e.preventDefault();
+  const from = S.buckets.findIndex(b => b.id === dragB), to = S.buckets.findIndex(b => b.id === l.dataset.bdrag);
+  if (from >= 0 && to >= 0 && from !== to) { const [b] = S.buckets.splice(from, 1); S.buckets.splice(to, 0, b); S.ui.bsort = 'mine'; save(); render(); } dragB = null; });
+document.addEventListener('dragend', () => { dragB = null; document.querySelectorAll('.dragging').forEach(x => x.classList.remove('dragging')); });
+document.addEventListener('change', e => { if (e.target.dataset && e.target.dataset.act === 'bsort') { S.ui.bsort = e.target.value; save(); render(); } });
+Object.assign(A, {
+  editexpl: d => { editingExpl = d.id; render(); setTimeout(() => { const el = document.getElementById('ex-' + d.id); if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); } }, 0); },
+  saveexpl: d => saveExpl(d.id),
+  cancelexpl: () => { editingExpl = null; render(); },
+  bup: d => { S.ui.bsort = 'mine'; moveBucket(d.id, -1); },
+  bdown: d => { S.ui.bsort = 'mine'; moveBucket(d.id, 1); }
 });
 
 boot();
