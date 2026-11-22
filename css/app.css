@@ -268,7 +268,7 @@ h1,h2,h3{font-family:inherit}
 .bt-l{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 
 /* ---- v0.2.4: phone fit, safe areas (Dynamic Island), collapsible menu ---- */
-html,body{overflow-x:hidden}
+html,body{overflow-x:clip}
 main{min-width:0}
 .app{padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)}
 aside{padding-top:calc(22px + env(safe-area-inset-top));padding-bottom:calc(16px + env(safe-area-inset-bottom))}
@@ -325,3 +325,11 @@ main{padding-top:calc(28px + env(safe-area-inset-top));padding-bottom:calc(80px 
 .tiny:disabled{opacity:.3;cursor:default}
 .tray-h h3{display:flex;align-items:center;flex-wrap:wrap}
 .board-top label select{border:1px solid var(--line);border-radius:9px;padding:5px;background:#fff;margin-left:4px}
+
+/* v0.2.8: the menu stays put while the page scrolls */
+@media (min-width:821px){
+  .app{display:block;padding-left:calc(248px + env(safe-area-inset-left))}
+  .app aside{position:fixed;top:0;bottom:0;left:0;width:248px;height:auto;box-sizing:border-box;padding-left:calc(16px + env(safe-area-inset-left));z-index:20;overflow-y:auto;overscroll-behavior:contain}
+  .app.collapsed{padding-left:env(safe-area-inset-left)}
+  main{max-width:none}
+}
