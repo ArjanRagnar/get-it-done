@@ -299,6 +299,7 @@ function card(i, ctx){
     if (!lk) more.push(`<button class="btn sm" data-act="place" data-id="${i.id}">${i.place ? 'Place' : 'Add place'}</button>`);
     if (i.oldName) a.push(`<button class="btn sm" data-act="confirm" data-id="${i.id}">Confirm bucket</button>`);
     if (canUndo(i)) a.push(`<button class="btn sm" data-act="undoresched" data-id="${i.id}">↶ Undo reschedule</button>`);
+    if (i.reschedules > 0 || i.delegates.some(x => x.reschedules > 0)) a.push(`<button class="btn sm" data-act="resetcount" data-id="${i.id}">Reset counter</button>`);
     if (i.isMaster && !lk) more.push(`<button class="btn sm ghost" data-act="unmerge" data-id="${i.id}">Unmerge</button>`, `<button class="btn sm ghost" data-act="master" data-id="${i.id}">Change master</button>`);
     if (!lk) more.push(`<button class="btn sm danger" data-act="del" data-id="${i.id}">Delete</button>`);
     a.push(`<button class="btn sm ghost" data-act="more" data-id="${i.id}">${moreOpen.has(i.id) ? 'Less' : 'More…'}</button>`);
@@ -1325,6 +1326,22 @@ function undoResched(id){
   commit(`Reschedule undone: back to ${u.sched ? fmtD(u.sched.at) : 'unscheduled'}${u.fromGoogle ? ' (Google updates at the next sync)' : ''}`);
 }
 Object.assign(A, {undoresched: d => undoResched(d.id)});
+
+/* ================= Reset the reschedule counter by hand ================= */
+function resetCount(i){
+  const parts = [];
+  if (i.reschedules) parts.push(`yours: ${i.reschedules}`);
+  i.delegates.filter(x => x.reschedules).forEach(x => parts.push(`${person(x.pid).name}: ${x.reschedules}`));
+  modal({title: 'Reset the reschedule counter?', ok: 'Reset to 0',
+    body: `<p><b>${esc(i.text)}</b></p><p>Reschedules counted so far: ${esc(parts.join(', ') || '0')}. Resetting sets them to 0 and clears the Flagged mark. The item stays on its current date, and the reset is noted in its history.</p>`,
+    onOk: () => {
+      i.reschedules = 0; i.schedCount = i.sched ? 1 : 0; i.forcedFree = false;
+      i.delegates.forEach(x => { x.reschedules = 0; x.schedCount = x.sched ? 1 : 0; if (x.status === 'Rescheduled') x.status = 'Due'; });
+      i.undo = null; note(i.id, `Reschedule counter reset by hand (was ${parts.join(', ')})`);
+      commit('Counter reset to 0');
+    }});
+}
+Object.assign(A, {resetcount: d => resetCount(get(d.id))});
 
 boot();
 })();
