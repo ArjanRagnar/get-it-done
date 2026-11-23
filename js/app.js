@@ -43,7 +43,9 @@ const nextOcc = (t, r) => { const d = new Date(t); if (r === 'daily') d.setDate(
 
 function save(){ try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} queueSync(); }
 function load(){ try { const r = localStorage.getItem(KEY); return r ? JSON.parse(r) : null; } catch (e) { return null; } }
-function toast(m){ const t = $('#toast'); t.textContent = m; t.classList.add('on'); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove('on'), 3000); }
+function toast(m, act){ const t = $('#toast'); t.innerHTML = ''; t.appendChild(document.createTextNode(m)); t.classList.toggle('act', !!act);
+  if (act) { const b = document.createElement('button'); b.type = 'button'; b.className = 'tbtn'; b.textContent = act.label; b.onclick = () => { t.classList.remove('on'); act.fn(); }; t.appendChild(b); }
+  t.classList.add('on'); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove('on'), act ? 10000 : 3000); }
 function logItem(id, kind, detail){ S.itemLog.unshift({t: now(), id, kind, detail}); }
 function logBucket(detail){ S.bucketLog.unshift({t: now(), detail}); }
 function logPerson(pid, id, kind){ S.personLog.unshift({t: now(), pid, id, kind}); }
@@ -118,8 +120,8 @@ function moveItems(ids, to){
 }
 function countSchedule(o){ o.schedCount++; if (o.schedCount > 1 && !o.forcedFree) o.reschedules++; o.forcedFree = false; o.pastNotDone = false; }
 function gForget(sch, kind){ if (sch && sch.g && sch.g.id) { S.gDel = S.gDel || []; S.gDel.push({kind, id: sch.g.id}); } }
-function unscheduleOwn(i){ const fb = bucket(i.bucket); gForget(i.sched, i.sched && i.sched.type === 'task' ? 'task' : 'event'); i.sched = null; i.pastNotDone = false; if (fb && fb.deleting) i.forcedFree = true; }
-function unscheduleDel(i, d){ const fb = bucket(i.bucket); gForget(d.sched, 'task'); d.sched = null; d.status = null; d.pastNotDone = false; if (fb && fb.deleting) d.forcedFree = true; }
+function unscheduleOwn(i){ if (i.sched) i.lastSched = {t: now(), sched: Object.assign({}, i.sched, {g: null})}; const fb = bucket(i.bucket); gForget(i.sched, i.sched && i.sched.type === 'task' ? 'task' : 'event'); i.sched = null; i.pastNotDone = false; if (fb && fb.deleting) i.forcedFree = true; }
+function unscheduleDel(i, d){ if (d.sched) d.lastSched = {t: now(), sched: {at: d.sched.at, g: null}}; const fb = bucket(i.bucket); gForget(d.sched, 'task'); d.sched = null; d.status = null; d.pastNotDone = false; if (fb && fb.deleting) d.forcedFree = true; }
 function strike(i){ i.status = 'struck'; i.struckAt = now(); logItem(i.id, 'delete', `"${i.text}" deleted (struck through)`); }
 function resetCounters(x){ x.schedCount = 0; x.reschedules = 0; x.forcedFree = false; x.delegates.forEach(d => { d.schedCount = 0; d.reschedules = 0; d.forcedFree = false; }); }
 function hasHistory(i){ return i.schedCount > 0 || i.delegates.some(d => d.schedCount > 0); }
@@ -296,6 +298,7 @@ function card(i, ctx){
     more.push(`<button class="btn sm" data-act="process" data-id="${i.id}">Personal / work</button>`);
     if (!lk) more.push(`<button class="btn sm" data-act="place" data-id="${i.id}">${i.place ? 'Place' : 'Add place'}</button>`);
     if (i.oldName) a.push(`<button class="btn sm" data-act="confirm" data-id="${i.id}">Confirm bucket</button>`);
+    if (canUndo(i)) a.push(`<button class="btn sm" data-act="undoresched" data-id="${i.id}">↶ Undo reschedule</button>`);
     if (i.isMaster && !lk) more.push(`<button class="btn sm ghost" data-act="unmerge" data-id="${i.id}">Unmerge</button>`, `<button class="btn sm ghost" data-act="master" data-id="${i.id}">Change master</button>`);
     if (!lk) more.push(`<button class="btn sm danger" data-act="del" data-id="${i.id}">Delete</button>`);
     a.push(`<button class="btn sm ghost" data-act="more" data-id="${i.id}">${moreOpen.has(i.id) ? 'Less' : 'More…'}</button>`);
@@ -520,7 +523,7 @@ function scheduleModal(i){
       let at, len, loc = '';
       if (ty === 'task') { const v = o.querySelector('#m-day').value; if (!v) return false; at = parseDay(v); }
       else { at = Date.parse(o.querySelector('#m-dt').value); len = +o.querySelector('#m-len').value || 30; if (ty === 'appt') loc = o.querySelector('#m-loc').value.trim(); if (!at) return false; }
-      countSchedule(i); const oldS = i.sched, keepG = oldS && oldS.g && ((oldS.type === 'task') === (ty === 'task')) ? oldS.g : null; if (oldS && oldS.g && !keepG) gForget(oldS, oldS.type === 'task' ? 'task' : 'event'); i.sched = {at, type: ty, len, loc, repeat: rep, g: keepG};
+      if (i.schedCount > 0) snapUndo(i); countSchedule(i); const oldS = i.sched, keepG = oldS && oldS.g && ((oldS.type === 'task') === (ty === 'task')) ? oldS.g : null; if (oldS && oldS.g && !keepG) gForget(oldS, oldS.type === 'task' ? 'task' : 'event'); i.sched = {at, type: ty, len, loc, repeat: rep, g: keepG};
       if (resched) note(i.id, (o.querySelector('#m-note') || {}).value);
       commit(i.reschedules === 6 && resched ? 'Rescheduled. 6th reschedule: the item is now Flagged.' : C.stage < 2 ? `${TYPES[ty]} scheduled (Google sync comes in stage 2)` : `${TYPES[ty]} added to Google${ty === 'task' ? ' Tasks' : ' Calendar'}`);
     }});
@@ -556,7 +559,7 @@ function scheduleDelModal(i, d, sim){
       if (!sim && !applyProc(i, o)) { toast('Choose Personal, or Work and a process'); return false; }
       const at = parseDay(o.querySelector('#m-day').value); if (!at) return false;
       const prev = d.sched ? d.sched.at : null;
-      if (sim) { d.schedCount++; d.reschedules++; } else countSchedule(d);
+      if (sim || d.schedCount > 0) snapUndo(i, d); if (sim) { d.schedCount++; d.reschedules++; } else countSchedule(d);
       d.sched = {at, g: d.sched && d.sched.g || null}; d.status = d.schedCount > 1 ? 'Rescheduled' : 'Due'; d.pastNotDone = false;
       if (resched || sim) note(i.id, `${p.name}: ${(o.querySelector('#m-note') || {}).value || ''}`.replace(/: $/, ''));
       commit(d.reschedules === 4 ? `${p.name}'s 4th reschedule: the item is now Flagged.` : 'Follow-up task added');
@@ -715,7 +718,7 @@ function delegateModal(i){
       Object.entries(want).forEach(([pid, v]) => {
         const at = parseDay(v); let x = i.delegates.find(y => y.pid === pid);
         if (!x) { x = deleg(pid); i.delegates.push(x); logPerson(pid, i.id, 'assigned'); placeDeleg(i, x, at); mails.push({i, d: x, kind: 'new'}); }
-        else if (x.status !== 'Done') { const cur = (x.sched || x.planned || {}).at; if (!cur || isoDay(cur) !== v) { const prev = cur; if (x.sched) { x.schedCount++; x.reschedules++; x.sched.at = at; x.status = 'Rescheduled'; } else placeDeleg(i, x, at); mails.push({i, d: x, kind: 'moved', prev}); } }
+        else if (x.status !== 'Done') { const cur = (x.sched || x.planned || {}).at; if (!cur || isoDay(cur) !== v) { const prev = cur; if (x.sched) { snapUndo(i, x); x.schedCount++; x.reschedules++; x.sched.at = at; x.status = 'Rescheduled'; } else placeDeleg(i, x, at); mails.push({i, d: x, kind: 'moved', prev}); } }
       });
       commit(i.delegates.length ? `Delegated to ${i.delegates.map(x => person(x.pid).name).join(', ')}` : 'No longer delegated');
       queueMail(mails); setTimeout(flushMail, 0);
@@ -1230,26 +1233,26 @@ async function pullGoogle(){
   const msgs = [];
   for (const i of tops().filter(live)) {
     const s = i.sched;
-    if (s && s.g && s.g.id) {
+    if (s && s.g && s.g.id && s.g.h === ownHash(i)) { // only when nothing changed here since the last push; local changes win
       if (s.type === 'task') {
         const t = await gget(`${TASKS}/${s.g.id}`);
         if (t._gone || t.deleted) { s.g = null; unscheduleOwn(i); msgs.push(`"${i.text}" was deleted in Google, so it's unscheduled`); continue; }
         if (t.status === 'completed' && !i.done && !i.ownDone) { msgs.push(markOwnDone(i)); continue; }
         if (t.status === 'needsAction' && i.done) { reopen(i); msgs.push(`"${i.text}" was unticked in Google, so it's reopened`); continue; }
-        if (t.due && t.due.slice(0, 10) !== isoDay(s.at)) { const nd = parseDay(t.due.slice(0, 10)); i.schedCount++; i.reschedules++; s.at = nd; s.g.h = ownHash(i); msgs.push(`"${i.text}" was moved in Google: counted as a reschedule`); }
+        if (t.due && t.due.slice(0, 10) !== isoDay(s.at)) { const nd = parseDay(t.due.slice(0, 10)); snapUndo(i, null, true); i.schedCount++; i.reschedules++; s.at = nd; s.g.h = ownHash(i); msgs.push(`"${i.text}" was moved in Google: counted as a reschedule`); }
       } else if (!i.done) {
         const e = await gget(`${CAL}/${s.g.id}`);
         if (e._gone || e.status === 'cancelled') { s.g = null; unscheduleOwn(i); msgs.push(`"${i.text}" was deleted in Google, so it's unscheduled`); continue; }
         const st = e.start && Date.parse(e.start.dateTime || e.start.date);
-        if (st && Math.abs(st - s.at) > 60000 && s.repeat === 'none') { i.schedCount++; i.reschedules++; s.len = Math.round((Date.parse(e.end.dateTime || e.end.date) - st) / 6e4) || s.len; s.at = st; s.g.h = ownHash(i); msgs.push(`"${i.text}" was moved in Google: counted as a reschedule`); }
+        if (st && Math.abs(st - s.at) > 60000 && s.repeat === 'none') { snapUndo(i, null, true); i.schedCount++; i.reschedules++; s.len = Math.round((Date.parse(e.end.dateTime || e.end.date) - st) / 6e4) || s.len; s.at = st; s.g.h = ownHash(i); msgs.push(`"${i.text}" was moved in Google: counted as a reschedule`); }
       }
     }
     for (const d of i.delegates) {
-      if (!(d.sched && d.sched.g && d.sched.g.id)) continue;
+      if (!(d.sched && d.sched.g && d.sched.g.id) || d.sched.g.h !== delHash(i, d)) continue;
       const t = await gget(`${TASKS}/${d.sched.g.id}`);
       if (t._gone || t.deleted) { d.sched.g = null; unscheduleDel(i, d); msgs.push(`${person(d.pid).name}'s follow-up was deleted in Google`); continue; }
       if (t.status === 'completed' && d.status !== 'Done') { msgs.push(markDelDone(i, d)); continue; }
-      if (t.due && t.due.slice(0, 10) !== isoDay(d.sched.at)) { d.schedCount++; d.reschedules++; d.status = 'Rescheduled'; d.sched.at = parseDay(t.due.slice(0, 10)); d.sched.g.h = delHash(i, d); queueMail([{i, d, kind: 'moved'}]); msgs.push(`${person(d.pid).name}'s follow-up was moved in Google`); }
+      if (t.due && t.due.slice(0, 10) !== isoDay(d.sched.at)) { snapUndo(i, d, true); d.schedCount++; d.reschedules++; d.status = 'Rescheduled'; d.sched.at = parseDay(t.due.slice(0, 10)); d.sched.g.h = delHash(i, d); queueMail([{i, d, kind: 'moved'}]); msgs.push(`${person(d.pid).name}'s follow-up was moved in Google`); }
     }
   }
   return msgs;
@@ -1292,6 +1295,36 @@ async function googleRound(){
     gNote = /Google 403/.test(e.message) ? 'Google Calendar or Tasks permission is missing. Sign out, sign in again and tick every box.' : 'Could not reach Google Calendar or Tasks; will retry.';
   }
 }
+
+/* ================= Undo a reschedule ================= */
+const UNDO_HOURS = 24;
+function snapUndo(i, d, fromGoogle){
+  const tgt = d || i;
+  i.undo = {t: now(), pid: d ? d.pid : null, fromGoogle: !!fromGoogle,
+    sched: tgt.sched ? JSON.parse(JSON.stringify(tgt.sched)) : (tgt.lastSched && now() - tgt.lastSched.t < UNDO_HOURS * 3600e3 ? JSON.parse(JSON.stringify(tgt.lastSched.sched)) : null),
+    c: {schedCount: tgt.schedCount, reschedules: tgt.reschedules, forcedFree: !!tgt.forcedFree, status: tgt.status || null, pastNotDone: !!tgt.pastNotDone}};
+  if (!fromGoogle) setTimeout(() => toast(d ? `${person(d.pid).name}'s date changed` : 'Rescheduled', {label: 'Undo', fn: () => undoResched(i.id)}), 50);
+}
+const canUndo = i => i.undo && now() - i.undo.t < UNDO_HOURS * 3600e3 && !i.done && live(i);
+function undoResched(id){
+  const i = get(id); if (!i || !canUndo(i)) return toast('Nothing to undo');
+  const u = i.undo, d = u.pid ? i.delegates.find(x => x.pid === u.pid) : null, tgt = u.pid ? d : i;
+  if (!tgt) { i.undo = null; return toast('Nothing to undo'); }
+  const curG = tgt.sched && tgt.sched.g;
+  if (!u.sched) { gForget(tgt.sched, tgt === i && tgt.sched && tgt.sched.type !== 'task' ? 'event' : 'task'); tgt.sched = null; }
+  else {
+    const typeSame = tgt.sched && ((tgt.sched.type === 'task') === ((u.sched.type || 'task') === 'task'));
+    if (curG && !typeSame) gForget(tgt.sched, tgt.sched.type === 'task' ? 'task' : 'event');
+    tgt.sched = Object.assign({}, u.sched, {g: curG && typeSame ? {id: curG.id, h: ''} : (u.sched.g && !curG ? null : null)});
+  }
+  Object.assign(tgt, u.c);
+  S.notes = S.notes.filter(n => !(n.id === i.id && n.t >= u.t));
+  note(i.id, `Reschedule undone${u.pid ? ' (' + person(u.pid).name + ')' : ''}: back to ${u.sched ? fmtD(u.sched.at) : 'unscheduled'}`);
+  if (d && dirty) queueMail([{i, d, kind: 'moved'}]);
+  i.undo = null;
+  commit(`Reschedule undone: back to ${u.sched ? fmtD(u.sched.at) : 'unscheduled'}${u.fromGoogle ? ' (Google updates at the next sync)' : ''}`);
+}
+Object.assign(A, {undoresched: d => undoResched(d.id)});
 
 boot();
 })();
