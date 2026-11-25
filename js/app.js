@@ -583,11 +583,13 @@ function editModal(i){
       o.querySelectorAll('.m-tr').forEach(t => att[t.dataset.k].transcript = t.value);
       const text = o.querySelector('#m-text').value.trim(), expl = o.querySelector('#m-expl').value.trim(), ch = [];
       if (text !== i.text) ch.push(`Text: "${i.text}" → "${text}"`);
-      if (expl !== i.expl) ch.push(`Explanation: "${i.expl}" → "${expl}"`);
+      const explChanged = expl !== i.expl;
       if (JSON.stringify(att) !== JSON.stringify(i.atts)) ch.push(`Attachments: ${i.atts.length} → ${att.length}`);
-      if (!ch.length) return;
-      i.text = text; i.expl = expl; i.atts = att; i.edited = true; if (expl) i.needsExpl = false;
-      logItem(i.id, 'edit', ch.join(' · ')); save(); render(); toast('Saved and logged');
+      if (!ch.length && !explChanged) return;
+      i.text = text; i.expl = expl; i.atts = att; if (expl) i.needsExpl = false;
+      if (explChanged) note(i.id, `Explanation updated: "${expl}"`);
+      if (!ch.length) { save(); render(); toast('Explanation saved'); return; }
+      i.edited = true; logItem(i.id, 'edit', ch.join(' · ')); save(); render(); toast('Saved and logged');
       setTimeout(() => afterEditPrompt(i), 0);
     }});
   draw(ov);
@@ -747,7 +749,7 @@ const A = {
   clearsel: () => { sel.clear(); render(); },
   more: d => { moreOpen.has(d.id) ? moreOpen.delete(d.id) : moreOpen.add(d.id); render(); },
   expand: d => { expanded.has(d.id) ? expanded.delete(d.id) : expanded.add(d.id); render(); },
-  history: d => { const i = D(d), l = S.itemLog.filter(x => x.id === d.id).map(x => ({t: x.t, k: x.kind, v: x.detail})).concat(S.notes.filter(n => n.id === d.id).map(n => ({t: n.t, k: 'reschedule note', v: n.text}))).sort((a, b) => b.t - a.t);
+  history: d => { const i = D(d), l = S.itemLog.filter(x => x.id === d.id).map(x => ({t: x.t, k: x.kind, v: x.detail})).concat(S.notes.filter(n => n.id === d.id).map(n => ({t: n.t, k: 'note', v: n.text}))).sort((a, b) => b.t - a.t);
     modal({title: 'Item history', cancel: null, ok: 'Close', body: `<p><b>${esc(i.text)}</b></p>${l.map(x => `<div class="opt"><div><div class="note">${fmt(x.t)} · ${esc(x.k)}</div>${esc(x.v)}</div></div>`).join('') || '<p>Nothing recorded.</p>'}`}); },
   add: () => { const text = $('#cap').value.trim(), expl = $('#capx').value.trim();
     if (!text && !pending.length) return toast('Type something, or add a photo, voice note or email');
@@ -1164,8 +1166,8 @@ function saveExpl(id){
   const i = get(id), el = document.getElementById('ex-' + id); if (!i || !el) return;
   const v = el.value.trim(); editingExpl = null;
   if (v === i.expl) { render(); return; }
-  logItem(i.id, 'edit', `Explanation: "${i.expl}" → "${v}"`); i.expl = v; i.edited = true; if (v) i.needsExpl = false;
-  save(); render(); toast('Explanation saved'); setTimeout(() => afterEditPrompt(i), 0);
+  note(i.id, `Explanation updated: "${v}"`); i.expl = v; if (v) i.needsExpl = false;
+  save(); render(); toast('Explanation saved');
 }
 document.addEventListener('keydown', e => {
   if (e.target.id && e.target.id.startsWith('ex-')) {
