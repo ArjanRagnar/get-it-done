@@ -328,7 +328,7 @@ function bulkBar(){
 const stat = (v, label, cls = '', f) => `<div class="stat ${cls} ${f ? 'click' : ''}" ${f ? `data-act="filter" data-f="${f}"` : ''}><div class="v">${v}</div><div class="k">${label}</div></div>`;
 
 function vDump(){
-  const c = counts(), T = tops();
+  const c = counts(), T = tops().filter(matchQ);
   const unb = T.filter(i => open_(i) && !i.bucket).sort((a, b) => b.created - a.created);
   const inb = T.filter(i => open_(i) && i.bucket).sort((a, b) => b.created - a.created);
   const dn = T.filter(i => live(i) && i.done).sort((a, b) => b.done.at - a.done.at);
@@ -344,6 +344,7 @@ function vDump(){
   const chips = [['all', 'All'], ['unb', 'Unbucketed'], ['inb', 'In buckets'], ['email', 'From email'], ['struck', 'Struck through']].concat(c.conf ? [['conf', `To confirm (${c.conf})`]] : []);
   return `${captureBar()}<div class="head"><div><h1>Brain dump</h1><p>Everything lands here first. Nothing ever leaves this list.</p></div></div>
   <div class="stats">${stat(c.total, 'Total')}${stat(c.unb, 'Unbucketed', '', 'unb')}${stat(c.inb, 'In buckets', '', 'inb')}${stat(c.done, 'Done')}${stat(c.del, 'Deleted')}${stat(c.flag, 'Flagged', c.flag ? 'hot' : '')}${c.conf ? stat(c.conf, 'To confirm', 'hot', 'conf') : ''}</div>
+  ${searchBox()}
   <div class="chips">${chips.map(([k, l]) => `<button class="chip ${filter === k ? 'on' : ''}" data-act="filter" data-f="${k}">${l}</button>`).join('')}</div>
   ${bulkBar()}<div class="list">${list || '<div class="empty">Nothing here.</div>'}</div>`;
 }
@@ -1342,6 +1343,21 @@ function resetCount(i){
     }});
 }
 Object.assign(A, {resetcount: d => resetCount(get(d.id))});
+
+/* ================= Search in the brain dump ================= */
+let dq = '';
+function itemHay(i){
+  const g = i.groupId ? groupAll(i.groupId) : [i];
+  return g.map(x => [x.text, x.expl, x.bucket ? bname(x.bucket) : 'unbucketed', x.process && proc(x.process) ? proc(x.process).name : '', x.personal ? 'personal' : '', x.place && place(x.place) ? place(x.place).name : '',
+    ...x.delegates.map(d => (person(d.pid) || {}).name), ...x.atts.map(a => a.type === 'email' ? a.subject : a.type === 'voice' ? a.transcript : a.type === 'link' ? (a.label || a.url) : a.name)].join(' ')).join(' ').toLowerCase();
+}
+const matchQ = i => { const q = dq.trim().toLowerCase(); if (!q) return true; const h = itemHay(i); return q.split(/\s+/).every(w => h.includes(w)); };
+function searchBox(){
+  const n = dq.trim() ? tops().filter(i => i.status !== 'deleted' && matchQ(i)).length : null;
+  return `<div class="sbox"><span aria-hidden="true">🔍</span><label class="sr" for="dq">Search the brain dump</label><input id="dq" type="search" autocomplete="off" placeholder="Search text, explanations, emails, people, buckets…" value="${esc(dq)}">${n !== null ? `<span class="note">${n} found</span><button type="button" class="btn sm ghost" data-act="dqclear">Clear</button>` : ''}</div>`;
+}
+document.addEventListener('input', e => { if (e.target.id === 'dq') { dq = e.target.value; const pos = e.target.selectionStart; render(); const el = $('#dq'); if (el) { el.focus(); el.setSelectionRange(pos, pos); } } });
+Object.assign(A, {dqclear: () => { dq = ''; render(); }});
 
 boot();
 })();

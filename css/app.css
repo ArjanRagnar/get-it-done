@@ -336,3 +336,6 @@ main{padding-top:calc(28px + env(safe-area-inset-top));padding-bottom:calc(80px 
 
 #toast.act{pointer-events:auto;display:flex;align-items:center;gap:12px}
 .tbtn{border:0;background:#fff;color:var(--ink);font-weight:700;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:14px}
+
+.sbox{display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:6px 10px;margin-bottom:12px}
+.sbox input{flex:1;min-width:0;border:0;background:transparent;font-size:15px;padding:6px 0;outline:none}
