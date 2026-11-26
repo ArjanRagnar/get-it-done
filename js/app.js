@@ -600,24 +600,34 @@ function editModal(i){
   ov.querySelector('#m-photo').onchange = async e => { for (const f of e.target.files) { const a = await readFile(f); if (a) att.push(a); } draw(ov); };
 }
 function emailModal(){
-  modal({title: 'Add email', ok: 'Add to brain dump',
-    body: `<p>Paste the subject. “Find in Gmail” will search for it around the date received.</p>
-      <div class="f"><label>Subject</label><input type="text" id="m-sub"></div>
-      <div class="f"><label>Date received</label><input type="date" id="m-date" value="${isoDay(now())}"></div>
-      <div class="f"><label>Link (optional; from the browser's address bar in Gmail)</label><input type="url" id="m-link" placeholder="https://mail.google.com/…"></div>`,
+  const pre = typeof qb !== 'undefined' ? qb : {text: '', expl: '', atts: []};
+  const ov = modal({title: 'Add email', ok: 'Add to brain dump', wide: true,
+    body: `<div class="f"><label>Email subject (paste it)</label><input type="text" id="m-sub" placeholder="As it appears in Gmail"></div>
+      <div class="row2"><div class="f"><label>Date received</label><input type="date" id="m-date" value="${isoDay(now())}"></div>
+        <div class="f"><label>Link (optional)</label><input type="url" id="m-link" placeholder="https://mail.google.com/…"></div></div>
+      <div class="f"><label>Title (what the item is called; starts as the subject)</label><input type="text" id="m-title" value="${esc(pre.text)}"></div>
+      <div class="f"><label>Explanation (what needs to be done)</label><textarea id="m-expl" rows="2">${esc(pre.expl)}</textarea></div>
+      ${pre.atts.length ? `<p class="note">The ${pre.atts.length} photo/voice note${pre.atts.length === 1 ? '' : 's'} from the capture bar will be added too.</p>` : ''}
+      <p class="note">“Find in Gmail” searches for the subject around the date received.</p>`,
     onOk: o => {
-      const subject = o.querySelector('#m-sub').value.trim(); if (!subject) return false;
+      const subject = o.querySelector('#m-sub').value.trim(); if (!subject) { toast('Paste the email subject'); return false; }
+      const title = o.querySelector('#m-title').value.trim() || subject, expl = o.querySelector('#m-expl').value.trim();
       const a = {type: 'email', subject, date: o.querySelector('#m-date').value || isoDay(now()), link: o.querySelector('#m-link').value.trim()};
+      const extra = pre.atts.slice(), clearBar = () => { if (typeof qb !== 'undefined') { qb.text = ''; qb.expl = ''; qb.atts = []; } };
       const ex = findSubject(subject);
-      const create = () => { S.items.push(base({text: subject, atts: [a]})); commit('Email added to the brain dump'); };
+      const create = () => { S.items.push(base({text: title, expl, atts: [a, ...extra]})); clearBar(); commit('Email added to the brain dump'); };
       if (!ex) { create(); return; }
       setTimeout(() => {
         modal.alts = {alt1: create};
         modal({title: 'This subject already exists', ok: 'Attach to it', extra: '<button class="btn" data-m="alt1">Create a new item</button>',
-          body: `<p>“${esc(subject)}” is already on <b>${esc(ex.text)}</b>. Attach this email to that item instead?</p>`,
-          onOk: () => { if (locked(ex)) { toast('That item is scheduled (locked). Unschedule it first, or create a new item.'); return; } ex.atts.push(a); ex.edited = true; logItem(ex.id, 'edit', `Email added: "${subject}"`); commit('Email attached'); setTimeout(() => afterEditPrompt(ex), 0); }});
+          body: `<p>“${esc(subject)}” is already on <b>${esc(ex.text)}</b>. Attach this email to that item instead? (Your title and explanation are kept only if you create a new item.)</p>`,
+          onOk: () => { if (locked(ex)) { toast('That item is scheduled (locked). Unschedule it first, or create a new item.'); return; } ex.atts.push(a, ...extra); ex.edited = true; logItem(ex.id, 'edit', `Email added: "${subject}"`); clearBar(); commit('Email attached'); setTimeout(() => afterEditPrompt(ex), 0); }});
       }, 0);
     }});
+  // the title follows the subject until you type your own
+  const sub = ov.querySelector('#m-sub'), tt = ov.querySelector('#m-title'); let own = !!tt.value;
+  tt.addEventListener('input', () => { own = !!tt.value; });
+  sub.addEventListener('input', () => { if (!own) tt.value = sub.value; });
 }
 function mergeFlow(){
   const its = [...sel].map(get).filter(Boolean);
