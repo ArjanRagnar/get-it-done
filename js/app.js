@@ -458,14 +458,16 @@ function vPeople(){
   };
   const col = (title, addId, addPh, addAct, rows, extra = '') => `<section class="pcol"><div class="pcol-h"><h2>${title}</h2><span class="note">${rows.length}</span></div>
     <div class="inline"><input id="${addId}" placeholder="${addPh}">${extra}<button class="btn pri" data-act="${addAct}">Add</button></div><div class="plist">${rows.join('') || '<span class="empty-s">None yet</span>'}</div></section>`;
-  const people = S.people.map(p => { const s = stats(p); return `<div class="prow"><div><b>${esc(p.name)}</b>${p.active ? '' : ' <span class="b warn">inactive</span>'}
+  const people = S.people.filter(p => !p.deleted).map(p => { const s = stats(p); return `<div class="prow"><div><b>${esc(p.name)}</b>${p.active ? '' : ' <span class="b warn">inactive</span>'}
     <small>${p.email ? esc(p.email) : 'no email'}</small><small>${s.total} delegated · ${s.open} open · ${s.ontime} on time · ${s.late} late${s.late ? ` (avg ${s.delay} days)` : ''}</small>${!p.active && s.open ? `<small style="color:var(--urgent)">${s.open} open item${s.open === 1 ? '' : 's'} need reassigning</small>` : ''}</div>
-    <div class="pbtns"><button class="btn sm" data-act="renamep" data-id="${p.id}">Edit</button><button class="btn sm" data-act="togglep" data-id="${p.id}">${p.active ? 'Make inactive' : 'Make active'}</button></div></div>`; });
+    <div class="pbtns"><button class="btn sm" data-act="renamep" data-id="${p.id}">Edit</button><button class="btn sm" data-act="togglep" data-id="${p.id}">${p.active ? 'Make inactive' : 'Make active'}</button><button class="btn sm danger" data-act="delp" data-id="${p.id}">Delete</button></div></div>`; });
   const places = S.places.map(l => `<div class="prow"><div><b>${esc(l.name)}</b><small>${S.items.filter(i => i.place === l.id && live(i)).length} items</small></div><div class="pbtns"><button class="btn sm" data-act="renamel" data-id="${l.id}">Rename</button></div></div>`);
   const procs = S.processes.map(r => `<div class="prow"><div><b>${esc(r.name)}</b>${r.active ? '' : ' <span class="b warn">inactive</span>'}<small>${S.items.filter(i => i.process === r.id && live(i)).length} items</small></div>
     <div class="pbtns"><button class="btn sm" data-act="renamer" data-id="${r.id}">Rename</button><button class="btn sm" data-act="toggler" data-id="${r.id}">${r.active ? 'Make inactive' : 'Make active'}</button></div></div>`);
-  return `<div class="head"><div><h1>People, places, processes</h1><p>None of these can be deleted: rename them, or mark people and processes inactive.</p></div></div>
-  <div class="pcols">${col('People', 'newp', 'Name', 'addp', people, '<input id="newpe" placeholder="Email (optional)">')}${col('Places', 'newl', 'New place', 'addl', places)}${col('Processes', 'newr', 'New process', 'addr', procs)}</div>`;
+  const OBk = orderedBuckets(), bks = OBk.map((b, k) => { const n = tops().filter(i => live(i) && i.bucket === b.id).length, w = tops().filter(i => open_(i) && i.bucket === b.id && !locked(i)).length;
+    return `<div class="prow"><div><b>${esc(b.name)}</b><small>${n} item${n === 1 ? '' : 's'} · ${w} to schedule</small></div><div class="pbtns"><button class="tiny" data-act="bup" data-id="${b.id}" aria-label="Move ${esc(b.name)} up" ${k === 0 ? 'disabled' : ''}>▲</button><button class="tiny" data-act="bdown" data-id="${b.id}" aria-label="Move ${esc(b.name)} down" ${k === OBk.length - 1 ? 'disabled' : ''}>▼</button><button class="btn sm" data-act="renameb" data-id="${b.id}">Rename</button><button class="btn sm danger" data-act="deleteb" data-id="${b.id}">Delete</button></div></div>`; });
+  return `<div class="head"><div><h1>People, places, processes and buckets</h1><p>Places and processes can be renamed, or processes made inactive. People and buckets can also be deleted.</p></div></div>
+  <div class="pcols">${col('Buckets', 'newb', 'New bucket', 'addbcol', bks)}${col('People', 'newp', 'Name', 'addp', people, '<input id="newpe" placeholder="Email (optional)">')}${col('Places', 'newl', 'New place', 'addl', places)}${col('Processes', 'newr', 'New process', 'addr', procs)}</div>`;
 }
 function vLog(){
   const tabs = [['items', 'Item changes'], ['buckets', 'Bucket changes'], ['people', 'Delegation'], ['notes', 'Reschedule notes']];
@@ -712,7 +714,7 @@ function delegateModal(i){
     body: `<p>Pick each person and the date it must be done by. A task “Follow up with …” goes on your calendar for that date, and the person gets an email if their address is on file. Not an edit; you can change this even while it's scheduled.</p>
       ${!i.bucket ? '<p class="note">This item isn\'t in a bucket yet: the tasks are added to Google when it moves into one.</p>' : ''}
       ${needsProc(i) ? procField(i) : ''}
-      ${S.people.map(p => { const x = i.delegates.find(y => y.pid === p.id); if (!p.active && !x) return '';
+      ${S.people.filter(p => !p.deleted).map(p => { const x = i.delegates.find(y => y.pid === p.id); if (!p.active && !x) return '';
         const v = x ? isoDay((x.sched || x.planned || {at: now() + 2 * DAY}).at) : today;
         return `<div class="opt" style="align-items:center"><input type="checkbox" class="m-dp" value="${p.id}" ${x ? 'checked' : ''}><div style="flex:1">${esc(p.name)}${p.active ? '' : ' <span class="b warn">inactive</span>'}<div class="note">${p.email ? esc(p.email) : 'no email on file'}</div></div>
           <input type="date" class="m-dd" data-p="${p.id}" value="${v}" style="max-width:160px" ${x && x.status === 'Done' ? 'disabled' : ''}></div>`; }).join('')}
@@ -722,7 +724,9 @@ function delegateModal(i){
       const want = {};
       o.querySelectorAll('.m-dp:checked').forEach(c => want[c.value] = o.querySelector(`.m-dd[data-p="${c.value}"]`).value);
       const nn = o.querySelector('#m-np').value.trim();
-      if (nn) { const p = {id: uid('p'), name: nn, phone: '', email: o.querySelector('#m-ne').value.trim(), active: true}; S.people.push(p); want[p.id] = o.querySelector('#m-nd').value; }
+      if (nn) { const ne = o.querySelector('#m-ne').value.trim(), dup = findDupPerson(nn, ne);
+        if (dup && !o._dupOk) { o._dupOk = true; const w = o.querySelector('#m-dupw') || Object.assign(document.createElement('div'), {id: 'm-dupw', className: 'banner warn'}); w.textContent = `${dup.name}${dup.email ? ' (' + dup.email + ')' : ''} already exists. This looks like a duplicate. Press Save again to add them anyway, or tick ${dup.name} in the list above instead.`; o.querySelector('#m-np').closest('.f').before(w); return false; }
+        const p = {id: uid('p'), name: nn, phone: '', email: ne, active: true}; S.people.push(p); want[p.id] = o.querySelector('#m-nd').value; }
       if (Object.values(want).some(v => !v)) { toast('Each person needs a date'); return false; }
       if (Object.keys(want).length && !applyProc(i, o)) { toast('Choose Personal, or Work and a process'); return false; }
       const mails = [];
@@ -820,11 +824,14 @@ const A = {
       onOk: o => { const n = o.querySelector('#m-b').value.trim(); if (!n || n === b.name) return; tops().filter(i => i.bucket === b.id && open_(i) && !i.oldName).forEach(i => i.oldName = b.name); logBucket(`"${b.name}" renamed "${n}"`); b.name = n; commit('Renamed'); }}); },
   deleteb: d => { const b = bucket(d.id), n = tops().filter(i => i.bucket === b.id && live(i)).length;
     if (!n) return ask('Delete bucket?', `“${esc(b.name)}” is empty and will be deleted.`, 'Delete bucket', () => { S.buckets = S.buckets.filter(x => x !== b); logBucket(`Bucket "${b.name}" deleted (it was empty)`); openBucket = null; commit('Bucket deleted'); }, true);
-    ask('Empty it first', `A bucket can only be deleted when it's empty. Move its ${n} item${n === 1 ? '' : 's'} (done items included) to other buckets or the brain dump; scheduled ones must be unscheduled first. Start emptying?`, 'Start emptying', () => { b.deleting = true; commit(); }); },
+    ask('Empty it first', `A bucket can only be deleted when it's empty. Move its ${n} item${n === 1 ? '' : 's'} (done items included) to other buckets or the brain dump; scheduled ones must be unscheduled first. Start emptying?`, 'Start emptying', () => { b.deleting = true; view = 'buckets'; openBucket = b.id; commit('Move or unschedule the items below, then delete the bucket'); }); },
   canceldel: d => { bucket(d.id).deleting = false; commit(); },
-  renamep: d => { const p = person(d.id); modal({title: 'Edit person', ok: 'Save', body: `<div class="f"><label>Name</label><input type="text" id="m-n" value="${esc(p.name)}"></div><div class="f"><label>Email (optional; used to tell them about delegated tasks)</label><input type="text" id="m-e" value="${esc(p.email || '')}"></div>`, onOk: o => { const n = o.querySelector('#m-n').value.trim(); if (n) { p.name = n; p.email = o.querySelector('#m-e').value.trim(); commit('Saved'); } }}); },
+  renamep: d => { const p = person(d.id); modal({title: 'Edit person', ok: 'Save', body: `<div class="f"><label>Name</label><input type="text" id="m-n" value="${esc(p.name)}"></div><div class="f"><label>Email (optional; used to tell them about delegated tasks)</label><input type="text" id="m-e" value="${esc(p.email || '')}"></div>`, onOk: o => { const n = o.querySelector('#m-n').value.trim(), e = o.querySelector('#m-e').value.trim(); if (!n) return false; const dup = findDupPerson(n, e, p.id);
+    if (dup && !o._dupOk) { o._dupOk = true; const w = Object.assign(document.createElement('div'), {className: 'banner warn', textContent: `Another person already has this name and email. Press Save again to keep it anyway.`}); o.querySelector('.foot').before(w); return false; }
+    p.name = n; p.email = e; commit('Saved'); }}); },
   togglep: d => { const p = person(d.id); p.active = !p.active; commit(p.active ? `${p.name} is active again` : `${p.name} is inactive. Their open follow-ups show a warning.`); },
-  addp: () => { const n = $('#newp').value.trim(); if (n) { S.people.push({id: uid('p'), name: n, phone: '', email: $('#newpe').value.trim(), active: true}); commit('Person added'); } },
+  addp: () => { const n = $('#newp').value.trim(), e = $('#newpe').value.trim(); if (!n) return; const go = () => { S.people.push({id: uid('p'), name: n, phone: '', email: e, active: true}); commit('Person added'); }, dup = findDupPerson(n, e);
+    if (dup) ask('This looks like a duplicate', `${esc(dup.name)}${dup.email ? ' (' + esc(dup.email) + ')' : ''} is already in your people list${dup.active ? '' : ' (inactive)'}. Add another person with the same name and email anyway?`, 'Add anyway', go); else go(); },
   renamer: d => { const r = proc(d.id); modal({title: 'Rename process', ok: 'Rename', body: `<div class="f"><input type="text" id="m-n" value="${esc(r.name)}"></div>`, onOk: o => { const n = o.querySelector('#m-n').value.trim(); if (n) { r.name = n; commit('Renamed'); } }}); },
   toggler: d => { const r = proc(d.id); r.active = !r.active; commit(r.active ? 'Process active' : 'Process inactive: it can no longer be chosen for new items'); },
   addr: () => { const n = $('#newr').value.trim(); if (n) { S.processes.push({id: uid('r'), name: n, active: true}); commit('Process added'); } },
@@ -1058,7 +1065,7 @@ function captureModal(kind){
 function renderSide(){
   $('.app').classList.toggle('collapsed', !!(S.ui && S.ui.side === 'hidden'));
   const c = counts();
-  const nav = [['board', 'Dashboard'], ['dump', 'Brain dump', c.unb], ['urgent', 'Urgent', c.urg, true], ['done', 'Done', c.done], ['report', 'Metrics'], ['people', 'People, places, processes'], ['log', 'Change log'], ['deleted', 'Deleted', c.del], ['settings', 'Settings']];
+  const nav = [['board', 'Dashboard'], ['dump', 'Brain dump', c.unb], ['urgent', 'Urgent', c.urg, true], ['done', 'Done', c.done], ['report', 'Metrics'], ['people', 'People, places, processes, buckets'], ['log', 'Change log'], ['deleted', 'Deleted', c.del], ['settings', 'Settings']];
   const st = {local: 'This device only', pending: 'Saving…', syncing: 'Syncing…', synced: 'Synced', offline: 'Offline', error: 'Sync problem'}[syncState];
   $('#side').innerHTML = `
     <div class="brand"><div class="bl"><img src="icons/icon.svg" width="30" height="30" alt=""><div>Get it Done<small>Test stage ${C.stage} · v${C.version}</small></div></div><button type="button" class="side-x" data-act="side" aria-label="Hide menu" title="Hide menu">«</button></div>
@@ -1370,6 +1377,26 @@ function searchBox(){
 }
 document.addEventListener('input', e => { if (e.target.id === 'dq') { dq = e.target.value; const pos = e.target.selectionStart; render(); const el = $('#dq'); if (el) { el.focus(); el.setSelectionRange(pos, pos); } } });
 Object.assign(A, {dqclear: () => { dq = ''; render(); }});
+
+/* ================= Delete people, duplicate check, add bucket from the page ================= */
+function findDupPerson(name, email, exceptId){
+  const n = name.trim().toLowerCase(), e = (email || '').trim().toLowerCase();
+  return S.people.find(p => !p.deleted && p.id !== exceptId && p.name.trim().toLowerCase() === n && (p.email || '').trim().toLowerCase() === e);
+}
+function deletePerson(p){
+  const openD = []; tops().filter(live).forEach(i => i.delegates.forEach(d => { if (d.pid === p.id && d.status !== 'Done') openD.push({i, d}); }));
+  modal({title: `Delete ${p.name}?`, ok: 'Delete', danger: true,
+    body: openD.length ? `<p>${esc(p.name)} still has ${openD.length} open delegated item${openD.length === 1 ? '' : 's'}:</p><ul>${openD.map(x => `<li>${esc(x.i.text)}</li>`).join('')}</ul><p>Deleting removes ${esc(p.name)} from these items and removes their follow-up tasks from Google. The rest of each item stays as it is. Past history keeps their name.</p>`
+      : `<p>${esc(p.name)} has no open delegated items. Past history keeps their name.</p>`,
+    onOk: () => {
+      openD.forEach(({i, d}) => { unscheduleDel(i, d); S.closedDeleg = S.closedDeleg || []; S.closedDeleg.push({pid: p.id, id: i.id, text: i.text, expl: i.expl, assignedAt: d.assignedAt || now(), reschedules: d.reschedules, closedAt: now()}); i.delegates = i.delegates.filter(x => x !== d); });
+      p.deleted = true; p.active = false; logPerson(p.id, '', 'deleted'); commit(`${p.name} deleted`);
+    }});
+}
+Object.assign(A, {
+  delp: d => deletePerson(person(d.id)),
+  addbcol: () => { const n = $('#newb').value.trim(); if (!n) return; S.buckets.push({id: uid('b'), name: n}); logBucket(`Bucket "${n}" added`); commit('Bucket added'); }
+});
 
 boot();
 })();

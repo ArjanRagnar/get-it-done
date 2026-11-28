@@ -302,7 +302,7 @@ main{padding-top:calc(28px + env(safe-area-inset-top));padding-bottom:calc(80px 
   input,select,textarea,.qin,.qin.sm{font-size:16px !important} /* stops iPhone zooming into fields */
 }
 
-.pcols{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;align-items:start}
+.pcols{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;align-items:start}
 .pcol{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:8px;min-width:0}
 .pcol-h{display:flex;justify-content:space-between;align-items:baseline}
 .pcol-h h2{font-size:18px;margin:0}
@@ -339,3 +339,4 @@ main{padding-top:calc(28px + env(safe-area-inset-top));padding-bottom:calc(80px 
 
 .sbox{display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:6px 10px;margin-bottom:12px}
 .sbox input{flex:1;min-width:0;border:0;background:transparent;font-size:15px;padding:6px 0;outline:none}
+@media (max-width:1250px) and (min-width:761px){.pcols{grid-template-columns:repeat(2,minmax(0,1fr))}}
