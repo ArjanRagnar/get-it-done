@@ -274,7 +274,7 @@ function delegSection(i){
       ? `<button class="btn sm" data-act="dunsched" data-id="${i.id}" data-p="${d.pid}">Unschedule</button><button class="btn sm" data-act="ddone" data-id="${i.id}" data-p="${d.pid}">☑ Done / ticked</button>`
       : (i.bucket ? `<button class="btn sm pri" data-act="dsched" data-id="${i.id}" data-p="${d.pid}">Set due date</button>` : '') + `<button class="btn sm" data-act="ddone" data-id="${i.id}" data-p="${d.pid}">Done</button>`;
     return `<div class="drow"><div><span class="who">→ ${esc(p.name)}</span> ${!p.active ? '<span class="b warn">inactive, reassign</span>' : ''}
-      <div class="st">${d.planned && !d.sched ? 'By ' + esc(fmtD(d.planned.at)) + ' · task added when bucketed' : st}${d.sched && !done ? ' · by ' + esc(fmtD(d.sched.at)) : ''}${d.reschedules ? ` · ${d.reschedules} reschedule${d.reschedules === 1 ? '' : 's'}` : ''}${d.reschedules > 3 ? ' · <b style="color:var(--flag)">flagged</b>' : ''}${d.pastNotDone ? ' · past, not done' : ''}</div></div><div style="display:flex;gap:4px;flex-wrap:wrap">${btns}</div></div>`; }).join('')}</div>`;
+      ${d.note ? `<div class="st dnote">“${esc(d.note)}”</div>` : ''}<div class="st">${d.planned && !d.sched ? 'By ' + esc(fmtD(d.planned.at)) + ' · task added when bucketed' : st}${d.sched && !done ? ' · by ' + esc(fmtD(d.sched.at)) : ''}${d.reschedules ? ` · ${d.reschedules} reschedule${d.reschedules === 1 ? '' : 's'}` : ''}${d.reschedules > 3 ? ' · <b style="color:var(--flag)">flagged</b>' : ''}${d.pastNotDone ? ' · past, not done' : ''}</div></div><div style="display:flex;gap:4px;flex-wrap:wrap">${btns}</div></div>`; }).join('')}</div>`;
 }
 function card(i, ctx){
   const struck = i.status === 'struck', lk = locked(i), done = !!i.done;
@@ -340,8 +340,9 @@ function vDump(){
   else if (filter === 'inb') list = inb.map(i => card(i)).join('');
   else if (filter === 'struck') list = str.map(i => card(i)).join('');
   else if (filter === 'conf') list = T.filter(i => open_(i) && i.oldName).map(i => card(i)).join('');
+  else if (filter === 'merged') list = T.filter(i => i.status !== 'deleted' && i.isMaster).map(i => { expanded.add(i.groupId); return card(i); }).join('');
   else if (filter === 'email') list = T.filter(i => live(i) && i.atts.some(a => a.type === 'email')).map(i => card(i)).join('');
-  const chips = [['all', 'All'], ['unb', 'Unbucketed'], ['inb', 'In buckets'], ['email', 'From email'], ['struck', 'Struck through']].concat(c.conf ? [['conf', `To confirm (${c.conf})`]] : []);
+  const chips = [['all', 'All'], ['unb', 'Unbucketed'], ['inb', 'In buckets'], ['email', 'From email'], ['merged', 'Merged'], ['struck', 'Struck through']].concat(c.conf ? [['conf', `To confirm (${c.conf})`]] : []);
   return `${captureBar()}<div class="head"><div><h1>Brain dump</h1><p>Everything lands here first. Nothing ever leaves this list.</p></div></div>
   <div class="stats">${stat(c.total, 'Total')}${stat(c.unb, 'Unbucketed', '', 'unb')}${stat(c.inb, 'In buckets', '', 'inb')}${stat(c.done, 'Done')}${stat(c.del, 'Deleted')}${stat(c.flag, 'Flagged', c.flag ? 'hot' : '')}${c.conf ? stat(c.conf, 'To confirm', 'hot', 'conf') : ''}</div>
   ${searchBox()}
@@ -672,12 +673,12 @@ function queueMail(list){ list.forEach(x => { const p = person(x.d.pid); p.pend 
 const isoWeek = t => { const d = new Date(t); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7); const w1 = new Date(d.getFullYear(), 0, 4); return 1 + Math.round(((d - w1) / DAY - 3 + (w1.getDay() + 6) % 7) / 7); };
 const runWeeks = (from, to) => Math.max(1, Math.ceil((to - from) / (7 * DAY)));
 function digestRows(p){
-  const pend = p.pend || [], mark = id => { const e = pend.filter(x => x.id === id); if (e.some(x => x.kind === 'new')) return ' (new)'; const m = e.find(x => x.kind === 'moved'); return m ? (m.prev ? ` (moved from ${fmtD(m.prev)})` : ' (new date)') : ''; };
+  const pend = p.pend || [], mark = id => { const e = pend.filter(x => x.id === id); if (e.some(x => x.kind === 'new')) return ' (new)'; const m = e.find(x => x.kind === 'moved'); return m ? (m.prev ? ` (moved from ${fmtD(m.prev)})` : ' (new date)') : (e.some(x => x.kind === 'note') ? ' (notes updated)' : ''); };
   const open = [], done = [], gone = [], keep = 28 * DAY;
   tops().filter(live).forEach(i => i.delegates.forEach(d => { if (d.pid !== p.id) return;
     const at = (d.sched || d.planned || {}).at;
-    if (d.status === 'Done') { if (now() - d.doneAt < keep) done.push({w: isoWeek(d.assignedAt), task: i.text, expl: i.expl, rs: d.reschedules, run: runWeeks(d.assignedAt, d.doneAt), st: `Done ${fmtD(d.doneAt)}`, sort: d.doneAt}); }
-    else open.push({w: isoWeek(d.assignedAt), task: i.text, expl: i.expl, rs: d.reschedules, run: runWeeks(d.assignedAt, now()),
+    if (d.status === 'Done') { if (now() - d.doneAt < keep) done.push({w: isoWeek(d.assignedAt), task: i.text, expl: i.expl, note: d.note, rs: d.reschedules, run: runWeeks(d.assignedAt, d.doneAt), st: `Done ${fmtD(d.doneAt)}`, sort: d.doneAt}); }
+    else open.push({w: isoWeek(d.assignedAt), task: i.text, expl: i.expl, note: d.note, rs: d.reschedules, run: runWeeks(d.assignedAt, now()),
       st: (at ? (dOverdue(d) ? `Overdue, was due ${fmtD(at)}` : `${d.status === 'Rescheduled' ? 'Rescheduled, due' : 'Due'} ${fmtD(at)}`) : 'Date to be set') + mark(i.id), sort: at || 0, over: dOverdue(d)}); }));
   (S.closedDeleg || []).filter(c => c.pid === p.id && now() - c.closedAt < keep).forEach(c => gone.push({w: isoWeek(c.assignedAt), task: c.text, expl: c.expl, rs: c.reschedules, run: runWeeks(c.assignedAt, c.closedAt), st: 'No longer needed', sort: c.closedAt, gone: true}));
   open.sort((x, y) => x.sort - y.sort); done.sort((x, y) => y.sort - x.sort); gone.sort((x, y) => y.sort - x.sort);
@@ -685,8 +686,8 @@ function digestRows(p){
 }
 function digestTable(rows){
   const th = 'style="text-align:left;padding:6px 8px;border-bottom:2px solid #1D2A2E;font-size:12px"', td = 'style="padding:6px 8px;border-bottom:1px solid #E3DDD0;vertical-align:top;font-size:12.5px"';
-  return `<table style="border-collapse:collapse;width:100%;background:#fff;border:1px solid #E3DDD0;border-radius:0;font-size:12.5px"><thead><tr><th ${th}>Week delegated</th><th ${th}>Task</th><th ${th}>Explanation</th><th ${th}>Reschedules</th><th ${th}>Running weeks</th><th ${th}>Status</th></tr></thead><tbody>
-    ${rows.map(r => `<tr style="${r.done ? 'color:#3B7448' : r.gone ? 'color:#9AA3A6;text-decoration:line-through' : ''}"><td ${td}>W${r.w}</td><td ${td}><b>${esc(r.task)}</b></td><td ${td}>${esc(r.expl || '-')}</td><td ${td}>${r.rs}</td><td ${td}>${r.run}</td><td ${td}${r.over ? ' style="padding:6px 8px;border-bottom:1px solid #E3DDD0;color:#B8432B;font-weight:600"' : ''}>${esc(r.st)}</td></tr>`).join('') || `<tr><td ${td} colspan="6">Nothing open right now.</td></tr>`}</tbody></table>`;
+  return `<table style="border-collapse:collapse;width:100%;background:#fff;border:1px solid #E3DDD0;border-radius:0;font-size:12.5px"><thead><tr><th ${th}>Week delegated</th><th ${th}>Task</th><th ${th}>Explanation</th><th ${th}>Notes for you</th><th ${th}>Reschedules</th><th ${th}>Running weeks</th><th ${th}>Status</th></tr></thead><tbody>
+    ${rows.map(r => `<tr style="${r.done ? 'color:#3B7448' : r.gone ? 'color:#9AA3A6;text-decoration:line-through' : ''}"><td ${td}>W${r.w}</td><td ${td}><b>${esc(r.task)}</b></td><td ${td}>${esc(r.expl || '-')}</td><td ${td}>${esc(r.note || '-')}</td><td ${td}>${r.rs}</td><td ${td}>${r.run}</td><td ${td}${r.over ? ' style="padding:6px 8px;border-bottom:1px solid #E3DDD0;color:#B8432B;font-weight:600"' : ''}>${esc(r.st)}</td></tr>`).join('') || `<tr><td ${td} colspan="7">Nothing open right now.</td></tr>`}</tbody></table>`;
 }
 function flushMail(){
   if (C.stage < 3) { dirty.clear(); return false; }
@@ -717,16 +718,18 @@ function delegateModal(i){
       ${S.people.filter(p => !p.deleted).map(p => { const x = i.delegates.find(y => y.pid === p.id); if (!p.active && !x) return '';
         const v = x ? isoDay((x.sched || x.planned || {at: now() + 2 * DAY}).at) : today;
         return `<div class="opt" style="align-items:center"><input type="checkbox" class="m-dp" value="${p.id}" ${x ? 'checked' : ''}><div style="flex:1">${esc(p.name)}${p.active ? '' : ' <span class="b warn">inactive</span>'}<div class="note">${p.email ? esc(p.email) : 'no email on file'}</div></div>
-          <input type="date" class="m-dd" data-p="${p.id}" value="${v}" style="max-width:160px" ${x && x.status === 'Done' ? 'disabled' : ''}></div>`; }).join('')}
+          <input type="date" class="m-dd" data-p="${p.id}" value="${v}" style="max-width:160px" ${x && x.status === 'Done' ? 'disabled' : ''}></div>
+          <textarea class="m-dn qin sm" data-p="${p.id}" rows="1" placeholder="Notes for ${esc(p.name)} (optional context)" style="width:100%;margin:-2px 0 8px">${esc(x && x.note || '')}</textarea>`; }).join('')}
       <div class="f"><label>…or add someone new</label><div class="row2"><input type="text" id="m-np" placeholder="Name"><input type="text" id="m-ne" placeholder="Email (optional)"></div>
-        <input type="date" id="m-nd" value="${today}" style="margin-top:8px"></div>`,
+        <input type="date" id="m-nd" value="${today}" style="margin-top:8px"><textarea id="m-nn" class="qin sm" rows="1" placeholder="Notes for this person (optional context)" style="width:100%;margin-top:8px"></textarea></div>`,
     onOk: o => {
       const want = {};
       o.querySelectorAll('.m-dp:checked').forEach(c => want[c.value] = o.querySelector(`.m-dd[data-p="${c.value}"]`).value);
+      const notes = {}; o.querySelectorAll('.m-dn').forEach(t => notes[t.dataset.p] = t.value.trim());
       const nn = o.querySelector('#m-np').value.trim();
       if (nn) { const ne = o.querySelector('#m-ne').value.trim(), dup = findDupPerson(nn, ne);
         if (dup && !o._dupOk) { o._dupOk = true; const w = o.querySelector('#m-dupw') || Object.assign(document.createElement('div'), {id: 'm-dupw', className: 'banner warn'}); w.textContent = `${dup.name}${dup.email ? ' (' + dup.email + ')' : ''} already exists. This looks like a duplicate. Press Save again to add them anyway, or tick ${dup.name} in the list above instead.`; o.querySelector('#m-np').closest('.f').before(w); return false; }
-        const p = {id: uid('p'), name: nn, phone: '', email: ne, active: true}; S.people.push(p); want[p.id] = o.querySelector('#m-nd').value; }
+        const p = {id: uid('p'), name: nn, phone: '', email: ne, active: true}; S.people.push(p); want[p.id] = o.querySelector('#m-nd').value; notes[p.id] = o.querySelector('#m-nn').value.trim(); }
       if (Object.values(want).some(v => !v)) { toast('Each person needs a date'); return false; }
       if (Object.keys(want).length && !applyProc(i, o)) { toast('Choose Personal, or Work and a process'); return false; }
       const mails = [];
@@ -735,7 +738,8 @@ function delegateModal(i){
       i.delegates = i.delegates.filter(x => x.pid in want);
       Object.entries(want).forEach(([pid, v]) => {
         const at = parseDay(v); let x = i.delegates.find(y => y.pid === pid);
-        if (!x) { x = deleg(pid); i.delegates.push(x); logPerson(pid, i.id, 'assigned'); placeDeleg(i, x, at); mails.push({i, d: x, kind: 'new'}); }
+        if (x && x.status !== 'Done' && (x.note || '') !== (notes[pid] || '')) { x.note = notes[pid] || ''; logPerson(pid, i.id, 'notes updated'); if (isoDay((x.sched || x.planned || {}).at || 0) === v) mails.push({i, d: x, kind: 'note'}); }
+        if (!x) { x = deleg(pid, {note: notes[pid] || ''}); i.delegates.push(x); logPerson(pid, i.id, 'assigned'); placeDeleg(i, x, at); mails.push({i, d: x, kind: 'new'}); }
         else if (x.status !== 'Done') { const cur = (x.sched || x.planned || {}).at; if (!cur || isoDay(cur) !== v) { const prev = cur; if (x.sched) { snapUndo(i, x); x.schedCount++; x.reschedules++; x.sched.at = at; x.status = 'Rescheduled'; } else placeDeleg(i, x, at); mails.push({i, d: x, kind: 'moved', prev}); } }
       });
       commit(i.delegates.length ? `Delegated to ${i.delegates.map(x => person(x.pid).name).join(', ')}` : 'No longer delegated');
@@ -1239,7 +1243,7 @@ function gNotes(i){
   return lines.join('\n');
 }
 const ownHash = i => JSON.stringify([i.sched.at, i.sched.type, i.sched.len, i.sched.loc, i.sched.repeat, i.text, i.expl, !!(i.done || i.ownDone), i.atts.length]);
-const delHash = (i, d) => JSON.stringify([d.sched.at, i.text, i.expl, d.status === 'Done', person(d.pid).name]);
+const delHash = (i, d) => JSON.stringify([d.sched.at, i.text, i.expl, d.status === 'Done', person(d.pid).name, d.note || '']);
 function eventBody(i){
   const s = i.sched, done = i.done || i.ownDone, b = {summary: (done ? '✓ ' : '') + i.text, description: gNotes(i),
     start: {dateTime: new Date(s.at).toISOString(), timeZone: TZ}, end: {dateTime: new Date(s.at + (s.len || 30) * 6e4).toISOString(), timeZone: TZ},
@@ -1301,9 +1305,9 @@ async function pushGoogle(){
     }
     for (const d of i.delegates) {
       if (!d.sched) continue;
-      const h = delHash(i, d), title = `Follow up with ${person(d.pid).name}: ${i.text}`;
-      if (!d.sched.g || !d.sched.g.id) { const r = await gjson(TASKS, 'POST', taskBody(title, gNotes(i), d.sched.at, d.status === 'Done')); d.sched.g = {id: r.id, h}; n++; }
-      else if (d.sched.g.h !== h) { await gjson(`${TASKS}/${d.sched.g.id}`, 'PATCH', taskBody(title, gNotes(i), d.sched.at, d.status === 'Done')); d.sched.g.h = h; n++; }
+      const h = delHash(i, d), title = `Follow up with ${person(d.pid).name}: ${i.text}`, dn = (d.note ? `Notes for ${person(d.pid).name}: ${d.note}\n\n` : '') + gNotes(i);
+      if (!d.sched.g || !d.sched.g.id) { const r = await gjson(TASKS, 'POST', taskBody(title, dn, d.sched.at, d.status === 'Done')); d.sched.g = {id: r.id, h}; n++; }
+      else if (d.sched.g.h !== h) { await gjson(`${TASKS}/${d.sched.g.id}`, 'PATCH', taskBody(title, dn, d.sched.at, d.status === 'Done')); d.sched.g.h = h; n++; }
     }
   }
   return n;

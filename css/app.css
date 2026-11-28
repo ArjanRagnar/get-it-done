@@ -397,3 +397,4 @@ html[data-theme="dark"] .b.bucket{color:#9FD6D9}
 html[data-theme="dark"] input::placeholder,html[data-theme="dark"] textarea::placeholder{color:#7D888B}
 html[data-theme="dark"] .seg2 button.on{background:var(--card)}
 .saved-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:6px 0}
+.dnote{font-style:italic;color:var(--ink)!important;margin:2px 0}
