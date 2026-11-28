@@ -1,5 +1,5 @@
 // Offline cache for the app shell. Bump VERSION on every release.
-const VERSION = 'v0.4.1';
+const VERSION = 'v0.4.2';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icons/icon.svg', './css/app.css', './js/config.js', './js/google.js', './js/app.js'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));

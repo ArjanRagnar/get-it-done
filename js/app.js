@@ -712,14 +712,16 @@ function flushMail(){
 function delegateModal(i){
   const today = isoDay(now() + 2 * DAY);
   const ov = modal({title: 'Delegate', ok: 'Save', wide: true,
-    body: `<p>Pick each person and the date it must be done by. A task “Follow up with …” goes on your calendar for that date, and the person gets an email if their address is on file. Not an edit; you can change this even while it's scheduled.</p>
+    body: `<p class="note">Tick each person, set the date it must be done by, and add notes if they need context. Each gets a “Follow up with …” task on your calendar.</p>
       ${!i.bucket ? '<p class="note">This item isn\'t in a bucket yet: the tasks are added to Google when it moves into one.</p>' : ''}
       ${needsProc(i) ? procField(i) : ''}
-      ${S.people.filter(p => !p.deleted).map(p => { const x = i.delegates.find(y => y.pid === p.id); if (!p.active && !x) return '';
-        const v = x ? isoDay((x.sched || x.planned || {at: now() + 2 * DAY}).at) : today;
-        return `<div class="opt" style="align-items:center"><input type="checkbox" class="m-dp" value="${p.id}" ${x ? 'checked' : ''}><div style="flex:1">${esc(p.name)}${p.active ? '' : ' <span class="b warn">inactive</span>'}<div class="note">${p.email ? esc(p.email) : 'no email on file'}</div></div>
-          <input type="date" class="m-dd" data-p="${p.id}" value="${v}" style="max-width:160px" ${x && x.status === 'Done' ? 'disabled' : ''}></div>
-          <textarea class="m-dn qin sm" data-p="${p.id}" rows="1" placeholder="Notes for ${esc(p.name)} (optional context)" style="width:100%;margin:-2px 0 8px">${esc(x && x.note || '')}</textarea>`; }).join('')}
+      <div class="dl-search"><span aria-hidden="true">🔍</span><label class="sr" for="m-dq">Find a person</label><input id="m-dq" type="search" autocomplete="off" placeholder="Find a person by name or email"></div>
+      <div class="dl-list">${S.people.filter(p => !p.deleted).map(p => { const x = i.delegates.find(y => y.pid === p.id); if (!p.active && !x) return '';
+        const v = x ? isoDay((x.sched || x.planned || {at: now() + 2 * DAY}).at) : today, on = !!x;
+        return `<div class="dl-row ${on ? 'on' : ''}" data-find="${esc((p.name + ' ' + (p.email || '')).toLowerCase())}">
+          <label class="dl-who"><input type="checkbox" class="m-dp" value="${p.id}" ${on ? 'checked' : ''}><span class="dl-n">${esc(p.name)}</span>${p.active ? '' : '<span class="b warn">inactive</span>'}<span class="dl-e">${p.email ? esc(p.email) : 'no email'}</span></label>
+          <input type="date" class="m-dd" data-p="${p.id}" value="${v}" aria-label="Due date for ${esc(p.name)}" ${x && x.status === 'Done' ? 'disabled' : ''}>
+          <textarea class="m-dn qin sm" data-p="${p.id}" rows="1" placeholder="Notes for ${esc(p.name)} (optional)">${esc(x && x.note || '')}</textarea></div>`; }).join('') || '<p class="note">No people yet. Add someone below.</p>'}<p class="note dl-none" hidden>No one matches. Add them below.</p></div>
       <div class="f"><label>…or add someone new</label><div class="row2"><input type="text" id="m-np" placeholder="Name"><input type="text" id="m-ne" placeholder="Email (optional)"></div>
         <input type="date" id="m-nd" value="${today}" style="margin-top:8px"><textarea id="m-nn" class="qin sm" rows="1" placeholder="Notes for this person (optional context)" style="width:100%;margin-top:8px"></textarea></div>`,
     onOk: o => {
@@ -745,6 +747,10 @@ function delegateModal(i){
       commit(i.delegates.length ? `Delegated to ${i.delegates.map(x => person(x.pid).name).join(', ')}` : 'No longer delegated');
       queueMail(mails); setTimeout(flushMail, 0);
     }});
+  const q = ov.querySelector('#m-dq');
+  if (q) q.addEventListener('input', () => { const t = q.value.trim().toLowerCase(); let n = 0; ov.querySelectorAll('.dl-row').forEach(r => { const hit = !t || r.dataset.find.includes(t); r.hidden = !hit; if (hit) n++; }); const none = ov.querySelector('.dl-none'); if (none) none.hidden = n > 0 || !t; });
+  ov.querySelectorAll('.m-dp').forEach(c => c.addEventListener('change', () => { const r = c.closest('.dl-row'); r.classList.toggle('on', c.checked); if (c.checked) { const d = r.querySelector('.m-dd'); d && d.focus(); } }));
+  if (q) q.focus();
   return ov;
 }
 function placeDeleg(i, x, at){
