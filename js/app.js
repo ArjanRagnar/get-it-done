@@ -36,7 +36,7 @@ const locked = i => !!i.sched || i.delegates.some(d => d.sched && d.status !== '
 const flagged = i => i.reschedules > 5 || i.delegates.some(d => d.reschedules > 3);
 const waiting = i => !!i.bucket && !locked(i) && !i.done && i.firstBucketedAt && now() - i.firstBucketedAt >= 14 * DAY;
 const dOverdue = d => d.sched && d.status !== 'Done' && now() > dayEnd(d.sched.at);
-const dStatus = d => d.status === 'Done' ? 'Done' : dOverdue(d) ? 'Overdue' : (d.status || 'Not scheduled');
+const dStatus = d => d.status === 'Done' ? 'Done' : dOverdue(d) ? 'Overdue' : (d.status || (d.planned ? 'Date set' : 'Date pending'));
 const tops = () => S.items.filter(i => isTop(i) && i.status !== 'deleted');
 const needsProc = i => !i.process && !i.personal;
 const nextOcc = (t, r) => { const d = new Date(t); if (r === 'daily') d.setDate(d.getDate() + 1); else if (r === 'weekly') d.setDate(d.getDate() + 7); else if (r === 'monthly') d.setMonth(d.getMonth() + 1); else if (r === 'yearly') d.setFullYear(d.getFullYear() + 1); return +d; };
@@ -272,7 +272,7 @@ function delegSection(i){
   return `<div class="deleg">${i.delegates.map(d => { const p = person(d.pid), st = dStatus(d); const done = d.status === 'Done';
     const btns = done || i.done ? '' : d.sched
       ? `<button class="btn sm" data-act="dunsched" data-id="${i.id}" data-p="${d.pid}">Unschedule</button><button class="btn sm" data-act="ddone" data-id="${i.id}" data-p="${d.pid}">☑ Done / ticked</button>`
-      : (i.bucket ? `<button class="btn sm pri" data-act="dsched" data-id="${i.id}" data-p="${d.pid}">Set due date</button>` : '') + `<button class="btn sm" data-act="ddone" data-id="${i.id}" data-p="${d.pid}">Done</button>`;
+      : (i.bucket ? `<button class="btn sm pri" data-act="dsched" data-id="${i.id}" data-p="${d.pid}">Set due date</button>` : (!d.planned ? `<button class="btn sm pri" data-act="delegate" data-id="${i.id}">Set due date</button>` : '')) + `<button class="btn sm" data-act="ddone" data-id="${i.id}" data-p="${d.pid}">Done</button>`;
     return `<div class="drow"><div><span class="who">→ ${esc(p.name)}</span> ${!p.active ? '<span class="b warn">inactive, reassign</span>' : ''}
       ${d.note ? `<div class="st dnote">“${esc(d.note)}”</div>` : ''}<div class="st">${d.planned && !d.sched ? 'By ' + esc(fmtD(d.planned.at)) + ' · task added when bucketed' : st}${d.sched && !done ? ' · by ' + esc(fmtD(d.sched.at)) : ''}${d.reschedules ? ` · ${d.reschedules} reschedule${d.reschedules === 1 ? '' : 's'}` : ''}${d.reschedules > 3 ? ' · <b style="color:var(--flag)">flagged</b>' : ''}${d.pastNotDone ? ' · past, not done' : ''}</div></div><div style="display:flex;gap:4px;flex-wrap:wrap">${btns}</div></div>`; }).join('')}</div>`;
 }
@@ -492,7 +492,7 @@ function render(){
   if (purge()) save();
   renderSide();
   applyLook();
-  $('#main').innerHTML = (S._welcome ? '' : conflictBanner()) + ({board: vBoard, dump: vDump, buckets: vBuckets, urgent: vUrgent, done: vDone, report: vReport, people: vPeople, log: vLog, deleted: vDeleted, settings: vSettings})[view]();
+  $('#main').innerHTML = (S._welcome ? '' : conflictBanner()) + ({board: vBoard, dpend: vDPend, dump: vDump, buckets: vBuckets, urgent: vUrgent, done: vDone, report: vReport, people: vPeople, log: vLog, deleted: vDeleted, settings: vSettings})[view]();
   renderPanel();
   setTimeout(() => flushMail() || checkPast(), 60);
 }
@@ -712,18 +712,18 @@ function flushMail(){
 function delegateModal(i){
   const today = isoDay(now() + 2 * DAY);
   const ov = modal({title: 'Delegate', ok: 'Save', wide: true,
-    body: `<p class="note">Tick each person, set the date it must be done by, and add notes if they need context. Each gets a “Follow up with …” task on your calendar.</p>
+    body: `<p class="note">Tick each person and add notes if they need context. The date it must be done by is optional: set it now or later. Each person with a date gets a “Follow up with …” task on your calendar.</p>
       ${!i.bucket ? '<p class="note">This item isn\'t in a bucket yet: the tasks are added to Google when it moves into one.</p>' : ''}
       ${needsProc(i) ? procField(i) : ''}
       <div class="dl-search"><span aria-hidden="true">🔍</span><label class="sr" for="m-dq">Find a person</label><input id="m-dq" type="search" autocomplete="off" placeholder="Find a person by name or email"></div>
       <div class="dl-list">${S.people.filter(p => !p.deleted).map(p => { const x = i.delegates.find(y => y.pid === p.id); if (!p.active && !x) return '';
-        const v = x ? isoDay((x.sched || x.planned || {at: now() + 2 * DAY}).at) : today, on = !!x;
+        const da = x && (x.sched || x.planned), v = da ? isoDay(da.at) : '', on = !!x;
         return `<div class="dl-row ${on ? 'on' : ''}" data-find="${esc((p.name + ' ' + (p.email || '')).toLowerCase())}">
           <label class="dl-who"><input type="checkbox" class="m-dp" value="${p.id}" ${on ? 'checked' : ''}><span class="dl-n">${esc(p.name)}</span>${p.active ? '' : '<span class="b warn">inactive</span>'}<span class="dl-e">${p.email ? esc(p.email) : 'no email'}</span></label>
           <input type="date" class="m-dd" data-p="${p.id}" value="${v}" aria-label="Due date for ${esc(p.name)}" ${x && x.status === 'Done' ? 'disabled' : ''}>
           <textarea class="m-dn qin sm" data-p="${p.id}" rows="1" placeholder="Notes for ${esc(p.name)} (optional)">${esc(x && x.note || '')}</textarea></div>`; }).join('') || '<p class="note">No people yet. Add someone below.</p>'}<p class="note dl-none" hidden>No one matches. Add them below.</p></div>
       <div class="f"><label>…or add someone new</label><div class="row2"><input type="text" id="m-np" placeholder="Name"><input type="text" id="m-ne" placeholder="Email (optional)"></div>
-        <input type="date" id="m-nd" value="${today}" style="margin-top:8px"><textarea id="m-nn" class="qin sm" rows="1" placeholder="Notes for this person (optional context)" style="width:100%;margin-top:8px"></textarea></div>`,
+        <input type="date" id="m-nd" value="" style="margin-top:8px"><textarea id="m-nn" class="qin sm" rows="1" placeholder="Notes for this person (optional context)" style="width:100%;margin-top:8px"></textarea></div>`,
     onOk: o => {
       const want = {};
       o.querySelectorAll('.m-dp:checked').forEach(c => want[c.value] = o.querySelector(`.m-dd[data-p="${c.value}"]`).value);
@@ -732,17 +732,17 @@ function delegateModal(i){
       if (nn) { const ne = o.querySelector('#m-ne').value.trim(), dup = findDupPerson(nn, ne);
         if (dup && !o._dupOk) { o._dupOk = true; const w = o.querySelector('#m-dupw') || Object.assign(document.createElement('div'), {id: 'm-dupw', className: 'banner warn'}); w.textContent = `${dup.name}${dup.email ? ' (' + dup.email + ')' : ''} already exists. This looks like a duplicate. Press Save again to add them anyway, or tick ${dup.name} in the list above instead.`; o.querySelector('#m-np').closest('.f').before(w); return false; }
         const p = {id: uid('p'), name: nn, phone: '', email: ne, active: true}; S.people.push(p); want[p.id] = o.querySelector('#m-nd').value; notes[p.id] = o.querySelector('#m-nn').value.trim(); }
-      if (Object.values(want).some(v => !v)) { toast('Each person needs a date'); return false; }
       if (Object.keys(want).length && !applyProc(i, o)) { toast('Choose Personal, or Work and a process'); return false; }
       const mails = [];
       i.delegates.filter(x => !(x.pid in want)).forEach(x => { logPerson(x.pid, i.id, 'removed'); if (x.status !== 'Done') { S.closedDeleg = S.closedDeleg || []; S.closedDeleg.push({pid: x.pid, id: i.id, text: i.text, expl: i.expl, assignedAt: x.assignedAt || now(), reschedules: x.reschedules, closedAt: now()}); mails.push({i, d: x, kind: 'removed'}); } });
       i.delegates.filter(x => !(x.pid in want)).forEach(x => gForget(x.sched, 'task'));
       i.delegates = i.delegates.filter(x => x.pid in want);
       Object.entries(want).forEach(([pid, v]) => {
-        const at = parseDay(v); let x = i.delegates.find(y => y.pid === pid);
+        const at = v ? parseDay(v) : null; let x = i.delegates.find(y => y.pid === pid);
         if (x && x.status !== 'Done' && (x.note || '') !== (notes[pid] || '')) { x.note = notes[pid] || ''; logPerson(pid, i.id, 'notes updated'); if (isoDay((x.sched || x.planned || {}).at || 0) === v) mails.push({i, d: x, kind: 'note'}); }
-        if (!x) { x = deleg(pid, {note: notes[pid] || ''}); i.delegates.push(x); logPerson(pid, i.id, 'assigned'); placeDeleg(i, x, at); mails.push({i, d: x, kind: 'new'}); }
-        else if (x.status !== 'Done') { const cur = (x.sched || x.planned || {}).at; if (!cur || isoDay(cur) !== v) { const prev = cur; if (x.sched) { snapUndo(i, x); x.schedCount++; x.reschedules++; x.sched.at = at; x.status = 'Rescheduled'; } else placeDeleg(i, x, at); mails.push({i, d: x, kind: 'moved', prev}); } }
+        if (!x) { x = deleg(pid, {note: notes[pid] || ''}); i.delegates.push(x); logPerson(pid, i.id, 'assigned'); if (at) placeDeleg(i, x, at); mails.push({i, d: x, kind: 'new'}); }
+        else if (x.status !== 'Done' && !at && (x.sched || x.planned)) { unscheduleDel(i, x); x.planned = null; mails.push({i, d: x, kind: 'note'}); }
+        else if (x.status !== 'Done' && at) { const cur = (x.sched || x.planned || {}).at; if (!cur || isoDay(cur) !== v) { const prev = cur; if (x.sched) { snapUndo(i, x); x.schedCount++; x.reschedules++; x.sched.at = at; x.status = 'Rescheduled'; } else placeDeleg(i, x, at); mails.push({i, d: x, kind: 'moved', prev}); } }
       });
       commit(i.delegates.length ? `Delegated to ${i.delegates.map(x => person(x.pid).name).join(', ')}` : 'No longer delegated');
       queueMail(mails); setTimeout(flushMail, 0);
@@ -1078,7 +1078,7 @@ function captureModal(kind){
 function renderSide(){
   $('.app').classList.toggle('collapsed', !!(S.ui && S.ui.side === 'hidden'));
   const c = counts();
-  const nav = [['board', 'Dashboard'], ['dump', 'Brain dump', c.unb], ['urgent', 'Urgent', c.urg, true], ['done', 'Done', c.done], ['report', 'Metrics'], ['people', 'People, places, processes, buckets'], ['log', 'Change log'], ['deleted', 'Deleted', c.del], ['settings', 'Settings']];
+  const nav = [['board', 'Dashboard'], ['dump', 'Brain dump', c.unb], ['urgent', 'Urgent', c.urg, true], ['dpend', 'Delegation date pending', dPending().length, true], ['done', 'Done', c.done], ['report', 'Metrics'], ['people', 'People, places, processes, buckets'], ['log', 'Change log'], ['deleted', 'Deleted', c.del], ['settings', 'Settings']];
   const st = {local: 'This device only', pending: 'Saving…', syncing: 'Syncing…', synced: 'Synced', offline: 'Offline', error: 'Sync problem'}[syncState];
   $('#side').innerHTML = `
     <div class="brand"><div class="bl"><img src="icons/icon.svg" width="30" height="30" alt=""><div>Get it Done<small>Test stage ${C.stage} · v${C.version}</small></div></div><button type="button" class="side-x" data-act="side" aria-label="Hide menu" title="Hide menu">«</button></div>
@@ -1442,6 +1442,15 @@ Object.assign(A, {
   editfield: d => { editingField = d.key; render(); setTimeout(() => { const el = document.getElementById('set-' + d.key); if (el) { el.focus(); el.select(); } }, 0); },
   cancelfield: () => { editingField = null; render(); }
 });
+
+/* ================= Delegation date pending ================= */
+function dPending(){ return tops().filter(i => open_(i) && i.delegates.some(d => d.status !== 'Done' && !d.sched && !d.planned)); }
+function vDPend(){
+  const no = dPending(), waiting = tops().filter(i => open_(i) && i.delegates.some(d => d.status !== 'Done' && !d.sched && d.planned));
+  return `<div class="head"><div><h1>Delegation date pending</h1><p>Delegated items where at least one person has no date yet. Open an item and use Delegate, or Set due date, to give them one.</p></div></div>
+  <div class="list">${no.map(i => card(i)).join('') || '<div class="empty">Every delegated person has a date.</div>'}</div>
+  ${waiting.length ? `<div class="sep">Date set, goes to Google once the item is in a bucket</div><div class="list">${waiting.map(i => card(i)).join('')}</div>` : ''}`;
+}
 
 boot();
 })();
