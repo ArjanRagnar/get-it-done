@@ -414,3 +414,12 @@ html[data-theme="dark"] .seg2 button.on{background:var(--card)}
 .dl-row .m-dn{grid-column:1/-1;display:none;width:100%;padding:5px 8px;font-size:13px;resize:vertical}
 .dl-row.on .m-dn{display:block}
 .dl-none{padding:8px 10px;margin:0}
+
+.qmore{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:flex-end;margin-top:10px;padding-top:10px;border-top:1px dashed var(--line)}
+.qmore label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--muted)}
+.qmore select{border:1px solid var(--line);border-radius:9px;padding:7px 8px;background:var(--card);color:var(--ink);min-width:160px}
+.qchecks{display:flex;gap:14px;flex-wrap:wrap;align-items:center;padding-bottom:6px}
+.qchecks label{flex-direction:row;align-items:center;gap:6px;font-size:13.5px;color:var(--ink)}
+.qmore .note{flex-basis:100%;margin:0}
+.btn.on-soft{background:var(--accent-soft);border-color:var(--accent-2)}
+@media (max-width:820px){.qrow{flex-wrap:wrap}.qrow .qin{flex-basis:100%}}

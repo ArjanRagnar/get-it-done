@@ -57,7 +57,7 @@ function modal({title, body = '', ok = 'OK', cancel = 'Cancel', danger = false, 
   const ov = $('#ov');
   ov.innerHTML = `<div class="modal" role="dialog" aria-modal="true"${wide ? ' style="max-width:580px"' : ''}><h2>${esc(title)}</h2>${body}<div class="foot">${extra || ''}${cancel ? `<button class="btn ghost" data-m="x">${esc(cancel)}</button>` : ''}${ok ? `<button class="btn ${danger ? 'danger' : 'pri'}" data-m="ok">${esc(ok)}</button>` : ''}</div></div>`;
   ov.classList.add('on');
-  const close = () => { ov.classList.remove('on'); ov.innerHTML = ''; setTimeout(() => flushMail() || checkPast(), 50); };
+  const close = () => { ov.classList.remove('on'); ov.innerHTML = ''; if (modal.after) { const f = modal.after; modal.after = null; setTimeout(f, 30); return; } setTimeout(() => flushMail() || checkPast(), 50); };
   ov.onclick = e => {
     const m = e.target.dataset && e.target.dataset.m;
     if (e.target === ov || m === 'x') { close(); onCancel && onCancel(); }
@@ -1149,18 +1149,35 @@ function captureBar(){
       <label class="ibtn qi" title="Add photo" aria-label="Add photo">📷<input type="file" accept="image/*" multiple data-act="qbphoto" hidden></label>
       <button type="button" class="ibtn qi ${qbRec ? 'rec' : ''}" data-act="qbrec" aria-label="${qbRec ? 'Stop recording' : 'Record voice note'}">${qbRec ? '■' : '🎙'}</button>
       <button type="button" class="ibtn qi" data-act="qbemail" title="Add an email" aria-label="Add an email">✉</button>
+      <button type="button" class="btn ${qbm.open ? 'on-soft' : ''}" data-act="qbmore" aria-expanded="${qbm.open}">${qbm.open ? 'Fewer details ▴' : 'More details ▾'}</button>
       <button type="submit" class="btn pri" data-act="qbadd">Add</button></div>
     <div class="qrow2 ${qb.text || qb.atts.length ? 'show' : ''}"><label class="sr" for="qb-expl">Explanation</label><input id="qb-expl" class="qin sm" autocomplete="off" placeholder="Explanation: what needs to be done (optional now, needed before bucketing)" value="${esc(qb.expl)}">
       <span class="qatts">${qb.atts.map((a, k) => a.type === 'photo' ? `<img src="${a.data}" alt="">` : `<span class="voice">🎙 ${k + 1}</span>`).join('')}</span><span class="note" id="qb-st">${qbRec ? 'Recording…' : ''}</span></div>
+    ${qbm.open ? moreDetails() : ''}
   </form>`;
 }
 function qbAdd(){
   if (qbRec) return toast('Stop the recording first');
   const text = qb.text.trim(), expl = qb.expl.trim();
   if (!text && !qb.atts.length) { const el = $('#qb-text'); el && el.focus(); return toast('Type something first'); }
-  S.items.push(base({text: text || (qb.atts[0].type === 'photo' ? 'Photo' : 'Voice note'), expl, atts: qb.atts}));
-  qb = {text: '', expl: '', atts: []}; commit('Added to the brain dump');
-  setTimeout(() => { const el = $('#qb-text'); el && el.focus(); }, 0);
+  const m = qbm.open ? Object.assign({}, qbm) : {};
+  if (m.bucket && !expl) { const el = $('#qb-expl'); el && el.focus(); return toast('Add an explanation to put it straight into a bucket'); }
+  if (m.kind === 'work' && !m.proc) return toast('Choose a process for a work item');
+  if (m.sched && !m.bucket) return toast('Choose a bucket to schedule it now');
+  const it = base({text: text || (qb.atts[0].type === 'photo' ? 'Photo' : 'Voice note'), expl, atts: qb.atts});
+  if (m.urgent) it.urgent = true;
+  if (m.kind === 'personal') it.personal = true; else if (m.kind === 'work') it.process = m.proc;
+  if (m.place) it.place = m.place;
+  if (m.bucket) { it.bucket = m.bucket; it.firstBucketedAt = now(); }
+  S.items.push(it);
+  if (m.bucket) logBucket(`"${it.text}" moved from the brain dump to ${bname(m.bucket)}`);
+  const thenDeleg = m.deleg, thenSched = m.sched;
+  qb = {text: '', expl: '', atts: []}; Object.assign(qbm, {urgent: false, deleg: false, sched: false});
+  commit(m.bucket ? `Added to ${bname(m.bucket)}` : 'Added to the brain dump');
+  if (thenDeleg && thenSched) { modal.after = () => scheduleModal(it); delegateModal(it); }
+  else if (thenDeleg) delegateModal(it);
+  else if (thenSched) scheduleModal(it);
+  else setTimeout(() => { const el = $('#qb-text'); el && el.focus(); }, 0);
 }
 async function qbRecord(){
   if (qbRec) { qbRec.stop(); return; }
@@ -1451,6 +1468,23 @@ function vDPend(){
   <div class="list">${no.map(i => card(i)).join('') || '<div class="empty">Every delegated person has a date.</div>'}</div>
   ${waiting.length ? `<div class="sep">Date set, goes to Google once the item is in a bucket</div><div class="list">${waiting.map(i => card(i)).join('')}</div>` : ''}`;
 }
+
+/* ================= Capture: more details ================= */
+const qbm = {open: false, bucket: '', urgent: false, kind: '', proc: '', place: '', deleg: false, sched: false};
+function moreDetails(){
+  const sel = (k, opts, ph) => `<select data-qbf="${k}"><option value="">${ph}</option>${opts.map(([v, l]) => `<option value="${v}" ${qbm[k] === v ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>`;
+  return `<div class="qmore">
+    <label><span>Bucket</span>${sel('bucket', orderedBuckets().map(b => [b.id, b.name]), 'Brain dump (unbucketed)')}</label>
+    <label><span>Personal or work</span>${sel('kind', [['personal', 'Personal'], ['work', 'Work']], 'Decide later')}</label>
+    ${qbm.kind === 'work' ? `<label><span>Process</span>${sel('proc', S.processes.filter(p => p.active).map(p => [p.id, p.name]), 'Choose…')}</label>` : ''}
+    <label><span>Place</span>${sel('place', S.places.map(p => [p.id, p.name]), 'None')}</label>
+    <div class="qchecks"><label><input type="checkbox" data-qbf="urgent" ${qbm.urgent ? 'checked' : ''}> Urgent</label>
+      <label><input type="checkbox" data-qbf="deleg" ${qbm.deleg ? 'checked' : ''}> Delegate after adding</label>
+      <label><input type="checkbox" data-qbf="sched" ${qbm.sched ? 'checked' : ''}> Schedule after adding</label></div>
+    <p class="note">Bucket, personal/work, process and place stay set for your next capture; urgent, delegate and schedule reset. A bucket needs an explanation.</p></div>`;
+}
+document.addEventListener('change', e => { const k = e.target.dataset && e.target.dataset.qbf; if (!k) return; qbm[k] = e.target.type === 'checkbox' ? e.target.checked : e.target.value; if (k === 'kind' && qbm.kind !== 'work') qbm.proc = ''; if (k === 'kind' || k === 'sched' || k === 'bucket') render(); });
+Object.assign(A, {qbmore: () => { qbm.open = !qbm.open; render(); }});
 
 boot();
 })();
