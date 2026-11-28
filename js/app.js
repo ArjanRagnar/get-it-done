@@ -490,7 +490,7 @@ function vDeleted(){
 function render(){
   if (purge()) save();
   renderSide();
-  document.documentElement.style.setProperty('--ff', S.font === 'Times New Roman' ? '"Times New Roman", Times, serif' : 'Aptos, "Segoe UI", -apple-system, system-ui, sans-serif');
+  applyLook();
   $('#main').innerHTML = (S._welcome ? '' : conflictBanner()) + ({board: vBoard, dump: vDump, buckets: vBuckets, urgent: vUrgent, done: vDone, report: vReport, people: vPeople, log: vLog, deleted: vDeleted, settings: vSettings})[view]();
   renderPanel();
   setTimeout(() => flushMail() || checkPast(), 60);
@@ -854,7 +854,7 @@ document.addEventListener('change', async e => {
 /* ================= Stage 1: sync with Google Drive ================= */
 const LOGS = ['itemLog', 'bucketLog', 'personLog', 'notes', 'doneLog', 'closedDeleg'];
 const COLLS = ['items', 'buckets', 'people', 'places', 'processes'];
-const SETTINGS = ['gmailAcct', 'userName', 'font', 'eaMode', 'eaEmail', 'holidays'];
+const SETTINGS = ['gmailAcct', 'userName', 'font', 'theme', 'eaMode', 'eaEmail', 'holidays'];
 const lget = k => { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } };
 const lset = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
 function queueSync(){ clearTimeout(syncTimer); if (window.GID && GID.signedIn) { syncState = 'pending'; syncTimer = setTimeout(syncNow, 2500); } else syncState = 'local'; }
@@ -1019,12 +1019,15 @@ function vSettings(){
   <div class="two"><div class="panel"><h2>Account</h2>
     ${GID.signedIn ? `<p>Signed in as <b>${esc(GID.email || 'your Google account')}</b></p><p class="note">${st}${lastSyncAt ? ' · ' + fmt(lastSyncAt) : ''}</p>${gNote ? `<p class="note" style="color:var(--urgent)">${esc(gNote)}</p>` : ''}<div class="cap-row"><button class="btn" data-act="syncnow">Sync now</button><button class="btn danger" data-act="signout">Sign out</button></div>`
       : `<p>Not signed in. Your items are only on this device.</p><button class="btn pri" data-act="signin">Sign in with Google</button>`}
-    <h2 style="margin-top:18px">Look</h2><div class="f"><label class="note">Font</label><div class="seg">${['Aptos', 'Times New Roman'].map(f => `<label><input type="radio" name="font" value="${f}" ${S.font === f ? 'checked' : ''} data-act="font"><span>${f}</span></label>`).join('')}</div><p class="note">On iPhone and iPad, Aptos shows as Apple's SF Pro.</p></div>
-    <h2 style="margin-top:18px">You</h2><div class="inline"><input id="set-name" value="${esc(S.userName || '')}" placeholder="Your name (used in delegation emails)"><button class="btn" data-act="savename">Save</button></div>
+    <h2 style="margin-top:18px">Look</h2>
+    <div class="f"><label class="note">Theme</label><div class="seg">${[['light', 'Light'], ['dark', 'Dark'], ['auto', 'Match device']].map(([v, l]) => `<label><input type="radio" name="theme" value="${v}" ${(S.theme || 'light') === v ? 'checked' : ''} data-act="theme"><span>${l}</span></label>`).join('')}</div></div>
+    <div class="f"><label class="note">Font</label><div class="seg">${Object.keys(FONTS).map(f => `<label style="font-family:${FONTS[f].replace(/"/g, '&quot;')}"><input type="radio" name="font" value="${f}" ${S.font === f ? 'checked' : ''} data-act="font"><span>${f}</span></label>`).join('')}</div><p class="note">On iPhone and iPad, Aptos shows as Apple's SF Pro. Inter downloads the first time you pick it.</p></div>
+    <h2 style="margin-top:18px">You</h2>
+    ${fieldRow('name', 'Your name', S.userName, 'Used in delegation emails: “Tasks delegated to … by …”', 'text')}
     <div class="inline"><input id="set-acct" type="number" min="0" max="9" value="${S.gmailAcct || 0}" style="max-width:90px"><span class="note" style="align-self:center">Gmail account number for “Find in Gmail” (0 = first)</span><button class="btn" data-act="saveacct">Save</button></div></div>
   <div class="panel"><h2>EA mode</h2><p class="note">When on, every person's delegation email and the urgent summary go to your EA instead. Emails start in test stage 3.</p>
     <label class="opt"><input type="checkbox" data-act="eamode" ${S.eaMode ? 'checked' : ''}><div><b>EA mode ${S.eaMode ? 'on' : 'off'}</b></div></label>
-    <div class="inline"><input id="set-ea" type="email" value="${esc(S.eaEmail || '')}" placeholder="EA's email address"><button class="btn" data-act="saveea">Save</button></div>
+    ${fieldRow('ea', 'EA\'s email address', S.eaEmail, 'Receives every person\'s email and the urgent summary when EA mode is on', 'email')}
     <h2 style="margin-top:18px">Holidays</h2><p class="note">No regular emails; deadlines move to 6 pm the working day before.</p>
     ${(S.holidays || []).map(h => `<div class="prow"><span>${new Date('2000-' + h + 'T12:00').toLocaleDateString(undefined, {day: 'numeric', month: 'long'})}</span><button class="btn sm danger" data-act="delhol" data-v="${h}">Remove</button></div>`).join('')}
     <div class="inline"><input id="set-hol" type="date"><button class="btn" data-act="addhol">Add holiday</button></div></div></div>`;
@@ -1071,7 +1074,7 @@ function renderSide(){
     <div class="brand"><div class="bl"><img src="icons/icon.svg" width="30" height="30" alt=""><div>Get it Done<small>Test stage ${C.stage} · v${C.version}</small></div></div><button type="button" class="side-x" data-act="side" aria-label="Hide menu" title="Hide menu">«</button></div>
     <button type="button" class="btn pri cap-btn" data-act="capture">+ Capture</button>
     <nav>${nav.map(([k, l, n, hot]) => `<button class="${view === k ? 'on' : ''}" data-act="nav" data-v="${k}"><span>${l}</span>${n !== undefined ? `<span class="n ${hot && n ? 'hot' : ''}">${n}</span>` : ''}</button>`).join('')}</nav>
-    <div class="side-card"><div class="lbl">Google</div>${GID.signedIn ? `<b>${esc(GID.email || 'Signed in')}</b><br>${st}${S.eaMode ? '<br><b>EA mode on</b>' : ''}` : `Not signed in<div class="row"><button data-act="signin">Sign in</button></div>`}</div>`;
+    <div class="side-card"><div class="lbl">Google</div>${GID.signedIn ? `${S.userName ? esc(S.userName) + '<br>' : ''}<b>${esc(GID.email || 'Signed in')}</b><br>${st}${S.eaMode ? '<br><b>EA mode on</b>' : ''}` : `Not signed in<div class="row"><button data-act="signin">Sign in</button></div>`}</div>`;
 }
 
 /* ================= Boot ================= */
@@ -1087,7 +1090,7 @@ function boot(){
   S.ui = Object.assign({weeks: 6, offset: 0, mview: 'time', mbucket: null, mrange: 'week'}, S.ui || {});
   ['closedDeleg', 'doneLog', 'notes'].forEach(k => S[k] = S[k] || []);
   conflicts = lget(CONFKEY) || [];
-  renderSide(); if (!GID.wasSignedIn() && !localStorage.getItem('gid-skip')) welcome(); else render(); // show something straight away, before Google's script loads
+  applyLook(); renderSide(); if (!GID.wasSignedIn() && !localStorage.getItem('gid-skip')) welcome(); else render(); // show something straight away, before Google's script loads
   const start = () => {
     GID.onChange = () => { if (GID.signedIn) GID.whoami().then(() => { renderSide(); syncNow(); }); render(); };
     if (!GID.signedIn && !GID.wasSignedIn() && !localStorage.getItem('gid-skip')) { renderSide(); welcome(); return; }
@@ -1396,6 +1399,38 @@ function deletePerson(p){
 Object.assign(A, {
   delp: d => deletePerson(person(d.id)),
   addbcol: () => { const n = $('#newb').value.trim(); if (!n) return; S.buckets.push({id: uid('b'), name: n}); logBucket(`Bucket "${n}" added`); commit('Bucket added'); }
+});
+
+/* ================= Settings: look and saved fields ================= */
+const FONTS = {'Aptos': 'Aptos, "Segoe UI", -apple-system, system-ui, sans-serif', 'Times New Roman': '"Times New Roman", Times, serif',
+  'Georgia': 'Georgia, "Times New Roman", serif', 'Verdana': 'Verdana, Geneva, Tahoma, sans-serif', 'Inter': 'Inter, "Segoe UI", -apple-system, system-ui, sans-serif'};
+let editingField = null;
+function applyLook(){
+  const f = FONTS[S.font] ? S.font : 'Aptos';
+  if (f === 'Inter' && !document.getElementById('gf-inter')) { const l = document.createElement('link'); l.id = 'gf-inter'; l.rel = 'stylesheet'; l.href = 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap'; document.head.appendChild(l); }
+  document.documentElement.style.setProperty('--ff', FONTS[f]);
+  const t = S.theme || 'light', dark = t === 'dark' || (t === 'auto' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+  const m = document.querySelector('meta[name=theme-color]'); if (m) m.content = dark ? '#0B0F10' : '#1D2A2E';
+}
+if (window.matchMedia) try { window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { if (S && S.theme === 'auto') applyLook(); }); } catch (e) {}
+function fieldRow(key, label, val, hint, type){
+  if (editingField === key || !val) return `<div class="f"><label class="note" for="set-${key}">${label}</label><div class="inline"><input id="set-${key}" type="${type}" value="${esc(val || '')}" data-enter="savefield" data-key="${key}">
+    <button class="btn pri" data-act="savefield" data-key="${key}">Save</button>${val ? `<button class="btn ghost" data-act="cancelfield">Cancel</button>` : ''}</div><p class="note">${hint}</p></div>`;
+  return `<div class="f"><label class="note">${label}</label><div class="saved-row"><b>${esc(val)}</b><span class="b ok">Saved</span><button class="btn sm" data-act="editfield" data-key="${key}">Edit</button></div><p class="note">${hint}</p></div>`;
+}
+function saveField(key){
+  const el = document.getElementById('set-' + key); if (!el) return; const v = el.value.trim();
+  if (key === 'ea' && v && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) return toast('That doesn\'t look like an email address');
+  if (key === 'name') S.userName = v; else if (key === 'ea') S.eaEmail = v;
+  editingField = null; commit(v ? 'Saved' : 'Cleared');
+}
+document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.dataset && e.target.dataset.enter === 'savefield') { e.preventDefault(); saveField(e.target.dataset.key); } });
+document.addEventListener('change', e => { if (e.target.dataset && e.target.dataset.act === 'theme') { S.theme = e.target.value; commit(); } });
+Object.assign(A, {
+  savefield: d => saveField(d.key),
+  editfield: d => { editingField = d.key; render(); setTimeout(() => { const el = document.getElementById('set-' + d.key); if (el) { el.focus(); el.select(); } }, 0); },
+  cancelfield: () => { editingField = null; render(); }
 });
 
 boot();
